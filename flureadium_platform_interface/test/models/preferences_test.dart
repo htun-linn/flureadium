@@ -37,6 +37,48 @@ void main() {
 
         expect(prefs.pageMargins, equals(20.0));
       });
+
+      test('creates instance with optional lineHeight and publisherStyles', () {
+        final prefs = EPUBPreferences(
+          fontFamily: 'Arial',
+          fontSize: 120,
+          fontWeight: 300.0,
+          verticalScroll: true,
+          backgroundColor: null,
+          textColor: null,
+          lineHeight: 1.5,
+          publisherStyles: false,
+        );
+
+        expect(prefs.lineHeight, equals(1.5));
+        expect(prefs.publisherStyles, isFalse);
+      });
+
+      test('lineHeight and publisherStyles default to null', () {
+        final prefs = EPUBPreferences(
+          fontFamily: 'Arial',
+          fontSize: 100,
+          fontWeight: 400.0,
+          verticalScroll: false,
+          backgroundColor: null,
+          textColor: null,
+        );
+
+        expect(prefs.lineHeight, isNull);
+        expect(prefs.publisherStyles, isNull);
+      });
+
+      test('fontFamily defaults to null when omitted', () {
+        final prefs = EPUBPreferences(
+          fontSize: 100,
+          fontWeight: null,
+          verticalScroll: false,
+          backgroundColor: null,
+          textColor: null,
+        );
+
+        expect(prefs.fontFamily, isNull);
+      });
     });
 
     group('toJson', () {
@@ -75,6 +117,58 @@ void main() {
         expect(json.containsKey('pageMargins'), isFalse);
       });
 
+      test('serializes lineHeight and publisherStyles when set', () {
+        final prefs = EPUBPreferences(
+          fontFamily: 'Helvetica',
+          fontSize: 150,
+          fontWeight: 500.0,
+          verticalScroll: true,
+          backgroundColor: null,
+          textColor: null,
+          lineHeight: 1.5,
+          publisherStyles: false,
+        );
+
+        final json = prefs.toJson();
+
+        expect(json['lineHeight'], equals('1.5'));
+        expect(json['publisherStyles'], equals('false'));
+      });
+
+      test('omits lineHeight and publisherStyles when unset', () {
+        final prefs = EPUBPreferences(
+          fontFamily: 'Times',
+          fontSize: 100,
+          fontWeight: null,
+          verticalScroll: null,
+          backgroundColor: null,
+          textColor: null,
+        );
+
+        final json = prefs.toJson();
+
+        expect(json.containsKey('lineHeight'), isFalse);
+        expect(json.containsKey('publisherStyles'), isFalse);
+      });
+
+      test('omits fontFamily when null to keep publisher fonts', () {
+        final prefs = EPUBPreferences(
+          fontSize: 100,
+          fontWeight: null,
+          verticalScroll: false,
+          backgroundColor: null,
+          textColor: null,
+          lineHeight: 1.5,
+          publisherStyles: false,
+        );
+
+        final json = prefs.toJson();
+
+        expect(json.containsKey('fontFamily'), isFalse);
+        expect(json['lineHeight'], equals('1.5'));
+        expect(json['publisherStyles'], equals('false'));
+      });
+
       test('converts fontSize to percentage string', () {
         final prefs = EPUBPreferences(
           fontFamily: 'Arial',
@@ -110,12 +204,16 @@ void main() {
           ..fontFamily = 'Georgia'
           ..fontSize = 150
           ..verticalScroll = true
-          ..pageMargins = 25.0;
+          ..pageMargins = 25.0
+          ..lineHeight = 1.8
+          ..publisherStyles = false;
 
         expect(prefs.fontFamily, equals('Georgia'));
         expect(prefs.fontSize, equals(150));
         expect(prefs.verticalScroll, isTrue);
         expect(prefs.pageMargins, equals(25.0));
+        expect(prefs.lineHeight, equals(1.8));
+        expect(prefs.publisherStyles, isFalse);
       });
     });
 

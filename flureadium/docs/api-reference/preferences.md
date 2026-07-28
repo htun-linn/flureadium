@@ -12,13 +12,15 @@ Controls visual appearance of EPUB content.
 
 ```dart
 EPUBPreferences({
-  required String fontFamily,
+  String? fontFamily,
   required int fontSize,
   required double? fontWeight,
   required bool? verticalScroll,
   required Color? backgroundColor,
   required Color? textColor,
   double? pageMargins,
+  double? lineHeight,
+  bool? publisherStyles,
 })
 ```
 
@@ -26,16 +28,18 @@ EPUBPreferences({
 
 #### fontFamily
 
-**Type:** `String` (required)
+**Type:** `String?`
 
-The font family name. Use system fonts or fonts bundled with the EPUB.
+Optional typeface override. Use a system font or a font bundled with the EPUB. When `null` (the default), Readium keeps the publication's own / publisher fonts — this is independent of [`publisherStyles`](#publisherstyles).
 
 ```dart
 fontFamily: 'Georgia'
 fontFamily: 'Helvetica'
 fontFamily: 'OpenDyslexic'
+fontFamily: null  // keep the EPUB's default fonts
 ```
 
+> **Tip:** To adjust [`lineHeight`](#lineheight) without replacing the book's typeface, leave `fontFamily` unset and set `publisherStyles: false`.
 #### fontSize
 
 **Type:** `int` (required)
@@ -109,6 +113,33 @@ pageMargins: 0.1   // 10% margins
 pageMargins: 0.15  // 15% margins
 ```
 
+#### lineHeight
+
+**Type:** `double?`
+
+Leading line height (line spacing) multiplier for reflowable EPUB text. Only effective for **reflowable** publications (not fixed-layout), and only takes effect when [`publisherStyles`](#publisherstyles) is explicitly set to `false` — otherwise the publisher's own CSS line-height wins.
+
+```dart
+lineHeight: 1.2  // Tight
+lineHeight: 1.5  // Normal
+lineHeight: 2.0  // Loose
+```
+
+#### publisherStyles
+
+**Type:** `bool?`
+
+Whether the original publisher CSS styles should be observed. Several advanced typography preferences — including `lineHeight`, letter/word spacing, paragraph spacing/indent, hyphens, and text alignment — require this to be explicitly set to `false` to have any visible effect.
+
+This does **not** force a custom typeface. Leave [`fontFamily`](#fontfamily) `null` to keep the EPUB's default fonts while still adjusting `lineHeight`.
+
+```dart
+publisherStyles: true   // Respect the publisher's own styling (default)
+publisherStyles: false  // Required to enable lineHeight and other advanced overrides
+```
+
+> **Note:** If you set `lineHeight` but leave `publisherStyles` at its default, most EPUBs will appear unchanged because the publisher's stylesheet takes precedence. Set `publisherStyles: false` whenever you set `lineHeight`.
+
 ### Methods
 
 #### toJson
@@ -122,7 +153,7 @@ Map<String, dynamic> toJson()
 ### Example Usage
 
 ```dart
-// Light mode
+// Light mode — custom font + adjustable line height
 final lightPrefs = EPUBPreferences(
   fontFamily: 'Georgia',
   fontSize: 100,
@@ -131,6 +162,20 @@ final lightPrefs = EPUBPreferences(
   backgroundColor: Color(0xFFFFFFFF),
   textColor: Color(0xFF000000),
   pageMargins: 0.1,
+  lineHeight: 1.5,
+  publisherStyles: false,  // required for lineHeight to take effect
+);
+
+// Keep the EPUB's default fonts, only adjust line height
+final publisherFontsPrefs = EPUBPreferences(
+  // fontFamily omitted → publisher fonts
+  fontSize: 100,
+  fontWeight: null,
+  verticalScroll: false,
+  backgroundColor: Color(0xFFFFFFFF),
+  textColor: Color(0xFF000000),
+  lineHeight: 1.5,
+  publisherStyles: false,
 );
 
 // Sepia mode

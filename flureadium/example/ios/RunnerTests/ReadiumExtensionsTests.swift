@@ -222,6 +222,35 @@ final class EPUBPreferencesExtensionTests: XCTestCase {
         XCTAssertEqual(prefs.lineHeight, 1.5)
     }
 
+    func testFromMapPublisherStylesFalse() {
+        let prefs = EPUBPreferences(fromMap: ["publisherStyles": "false"])
+        XCTAssertEqual(prefs.publisherStyles, false)
+    }
+
+    func testFromMapPublisherStylesTrue() {
+        let prefs = EPUBPreferences(fromMap: ["publisherStyles": "true"])
+        XCTAssertEqual(prefs.publisherStyles, true)
+    }
+
+    func testFromMapLineHeightWithPublisherStylesDisabled() {
+        let prefs = EPUBPreferences(fromMap: [
+            "lineHeight": "1.8",
+            "publisherStyles": "false",
+        ])
+        XCTAssertEqual(prefs.lineHeight, 1.8)
+        XCTAssertEqual(prefs.publisherStyles, false)
+    }
+
+    func testFromMapLineHeightWithoutFontFamilyKeepsPublisherFonts() {
+        let prefs = EPUBPreferences(fromMap: [
+            "lineHeight": "1.5",
+            "publisherStyles": "false",
+        ])
+        XCTAssertNil(prefs.fontFamily)
+        XCTAssertEqual(prefs.lineHeight, 1.5)
+        XCTAssertEqual(prefs.publisherStyles, false)
+    }
+
     func testFromMapPageMargins() {
         let prefs = EPUBPreferences(fromMap: ["pageMargins": "2.0"])
         XCTAssertEqual(prefs.pageMargins, 2.0)

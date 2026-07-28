@@ -81,6 +81,8 @@ fun epubPreferencesFromMap(
             textColor = prefMap["textColor"]?.let { readiumColorFromCSS(it) }
                 ?: defaults?.textColor,
             pageMargins = prefMap["pageMargins"]?.toDoubleOrNull() ?: defaults?.pageMargins,
+            lineHeight = prefMap["lineHeight"]?.toDoubleOrNull() ?: defaults?.lineHeight,
+            publisherStyles = prefMap["publisherStyles"]?.toBoolean() ?: defaults?.publisherStyles,
         )
         return newPreferences
     } catch (ex: Exception) {

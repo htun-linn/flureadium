@@ -79,6 +79,11 @@ class _ReaderPageState extends State<ReaderPage> {
   StreamSubscription<ReadiumError>? _errorSub;
   StreamSubscription<ReadiumTimebasedState>? _timebasedSub;
 
+  // Cycled by the "Line Height" button to manually verify lineHeight support
+  // on both platforms. publisherStyles must be false for lineHeight to apply.
+  static const _lineHeightPresets = [1.0, 1.5, 2.0];
+  int _lineHeightIndex = 0;
+
   @override
   void initState() {
     super.initState();
@@ -480,6 +485,28 @@ class _ReaderPageState extends State<ReaderPage> {
     );
   }
 
+  /// Cycles through [_lineHeightPresets] to manually verify that lineHeight
+  /// (gated behind publisherStyles: false) renders on both platforms while
+  /// keeping the EPUB's own / publisher fonts (fontFamily omitted).
+  Future<void> _cycleLineHeight() async {
+    setState(() {
+      _lineHeightIndex = (_lineHeightIndex + 1) % _lineHeightPresets.length;
+    });
+    final lineHeight = _lineHeightPresets[_lineHeightIndex];
+
+    await _flureadium.setEPUBPreferences(
+      EPUBPreferences(
+        fontSize: 100,
+        fontWeight: null,
+        verticalScroll: false,
+        backgroundColor: const Color(0xFFFFFFFF),
+        textColor: const Color(0xFF000000),
+        lineHeight: lineHeight,
+        publisherStyles: false,
+      ),
+    );
+  }
+
   Future<void> _toggleTts() async {
     if (_ttsEnabled) {
       _lastTtsLocator = _timebasedState?.currentLocator;
@@ -842,6 +869,13 @@ class _ReaderPageState extends State<ReaderPage> {
                         TextButton(
                           onPressed: _setNightPreferences,
                           child: const Text('Night'),
+                        ),
+                        TextButton(
+                          onPressed: _cycleLineHeight,
+                          child: Text(
+                            'Line Height '
+                            '${_lineHeightPresets[_lineHeightIndex]}',
+                          ),
                         ),
                         TextButton(
                           onPressed: _addHighlight,

@@ -191,6 +191,8 @@ extension EPUBPreferences {
         if let pageMarginsValue = Double(value) {
           pageMargins = pageMarginsValue
         }
+      case "publisherStyles":
+        publisherStyles = (value == "true")
       case "paragraphIndent":
         if let paragraphIndentValue = Double(value) {
           paragraphIndent = paragraphIndentValue

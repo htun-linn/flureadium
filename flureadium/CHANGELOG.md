@@ -1,3 +1,23 @@
+## 0.15.0
+
+### Added
+
+- **EPUB line-height preference**: `EPUBPreferences` gains `lineHeight` (`double?`) and `publisherStyles` (`bool?`), wired through to Readium's native preferences on both platforms.
+  - **iOS** already parsed a `lineHeight` key internally but it was unreachable since Dart never sent it; it's now wired up end-to-end, plus a new `publisherStyles` mapping.
+  - **Android** did not parse or apply `lineHeight`/`publisherStyles` at all; `epubPreferencesFromMap` (`ReadiumExtensions.kt`) and `EpubNavigator.updatePreferences` now handle both.
+  - `publisherStyles` must be explicitly set to `false` for `lineHeight` (and other advanced Readium typography preferences) to have any visible effect, since publisher CSS otherwise takes precedence. See `docs/api-reference/preferences.md` for details.
+  - Depends on `flureadium_platform_interface` `^0.9.0`.
+
+### Changed
+
+- **`EPUBPreferences.fontFamily` is now optional** (`String?`). When omitted/`null`, it is not sent over the channel, so Readium keeps the publication's own fonts. This is independent of `publisherStyles`: you can leave `fontFamily` unset and still set `publisherStyles: false` + `lineHeight` to adjust line spacing without replacing the book's typeface.
+
+### Testing
+
+- Dart: added constructor/`toJson` coverage for `lineHeight`/`publisherStyles` in `preferences_test.dart`, plus cases that omit `fontFamily` so publisher fonts are preserved.
+- Android JVM: new `FlutterEpubPreferencesTest` covers `epubPreferencesFromMap` parsing, default fallback, and override behaviour for both fields (including missing `fontFamily`).
+- iOS: extended `ReadiumExtensionsMappingTests` and the example app's `ReadiumExtensionsTests` with `publisherStyles` mapping cases alongside the existing `lineHeight` case.
+
 ## 0.14.1
 
 ### Bug Fixes

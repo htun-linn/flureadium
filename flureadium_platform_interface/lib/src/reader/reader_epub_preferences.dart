@@ -5,18 +5,20 @@ import '../index.dart';
 
 class EPUBPreferences {
   EPUBPreferences({
-    required this.fontFamily,
+    this.fontFamily,
     required this.fontSize,
     required this.fontWeight,
     required this.verticalScroll,
     required this.backgroundColor,
     required this.textColor,
     this.pageMargins,
+    this.lineHeight,
+    this.publisherStyles,
   });
 
   factory EPUBPreferences.fromJsonMap(final Map<String, dynamic> map) =>
       EPUBPreferences(
-        fontFamily: map['fontFamily'] as String,
+        fontFamily: map['fontFamily'] as String?,
         fontSize: map['fontSize'] as int,
         fontWeight: map['fontWeight'] as double,
         verticalScroll: map['verticalScroll'] as bool,
@@ -24,7 +26,9 @@ class EPUBPreferences {
         textColor: map['tint'] is int ? Color(map['tint'] as int) : null,
       );
 
-  String fontFamily;
+  /// Typeface override. When `null` (or omitted from [toJson]), Readium keeps
+  /// the publication's own / publisher fonts. Independent of [publisherStyles].
+  String? fontFamily;
   int fontSize;
   double? fontWeight;
   bool? verticalScroll;
@@ -32,20 +36,41 @@ class EPUBPreferences {
   Color? textColor;
   double? pageMargins;
 
+  /// Leading line height, e.g. `1.5`. Only effective for reflowable
+  /// publications, and only when [publisherStyles] is set to `false`.
+  double? lineHeight;
+
+  /// Whether the original publisher styles should be observed. Several
+  /// advanced typography preferences — including [lineHeight] — require
+  /// this to be explicitly set to `false` to take effect.
+  ///
+  /// This does **not** force a custom typeface: omit [fontFamily] (leave it
+  /// `null`) to keep the EPUB's default fonts while still adjusting
+  /// [lineHeight].
+  bool? publisherStyles;
+
   // TODO: Add more preferences,
   //see https://github.com/readium/swift-toolkit/blob/develop/Sources/Navigator/EPUB/Preferences/EPUBPreferences.swift
 
   Map<String, dynamic> toJson() {
     final map = <String, dynamic>{
-      'fontFamily': fontFamily,
       'fontSize': '${fontSize / 100}',
       'fontWeight': fontWeight.toString(),
       'verticalScroll': verticalScroll.toString(),
       'backgroundColor': backgroundColor.toCSS(),
       'textColor': textColor.toCSS(),
     };
+    if (fontFamily != null) {
+      map['fontFamily'] = fontFamily;
+    }
     if (pageMargins != null) {
       map['pageMargins'] = pageMargins.toString();
+    }
+    if (lineHeight != null) {
+      map['lineHeight'] = lineHeight.toString();
+    }
+    if (publisherStyles != null) {
+      map['publisherStyles'] = publisherStyles.toString();
     }
     return map;
   }

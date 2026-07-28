@@ -212,6 +212,8 @@ class EpubNavigator : BaseNavigator, EpubReaderFragment.Listener {
                 scroll.set(preferences.scroll)
                 backgroundColor.set(preferences.backgroundColor)
                 textColor.set(preferences.textColor)
+                publisherStyles.set(preferences.publisherStyles)
+                lineHeight.set(preferences.lineHeight)
 
                 mainScope.launch {
                     epubNavigator?.updatePreferences(preferences)

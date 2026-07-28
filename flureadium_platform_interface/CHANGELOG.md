@@ -1,3 +1,15 @@
+## 0.9.0
+
+### Added
+
+- **`EPUBPreferences.lineHeight` and `EPUBPreferences.publisherStyles`**: expose Readium's leading line-height and publisher-styles-override preferences to Flutter apps. Both are serialized in `toJson()` only when set. `lineHeight` only affects reflowable EPUBs, and only takes effect when `publisherStyles` is explicitly set to `false` — see the `flureadium` package docs for details.
+
+### Changed
+
+- **`EPUBPreferences.fontFamily` is now optional** (`String?`). When `null`, it is omitted from `toJson()` so native Readium keeps the publication's own fonts. Compatible with `publisherStyles: false` + `lineHeight` (font override is independent of publisher-styles gating).
+
+---
+
 ## 0.8.0
 
 ### Changed

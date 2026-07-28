@@ -39,6 +39,18 @@ final class ReadiumExtensionsMappingTests: XCTestCase {
         XCTAssertEqual(prefs.scroll, true)
     }
 
+    func testEPUBPreferencesFromMapMapsLineHeight() {
+        let map: [String: String] = ["lineHeight": "1.5"]
+        let prefs = EPUBPreferences(fromMap: map)
+        XCTAssertEqual(prefs.lineHeight, 1.5)
+    }
+
+    func testEPUBPreferencesFromMapMapsPublisherStyles() {
+        let map: [String: String] = ["publisherStyles": "false"]
+        let prefs = EPUBPreferences(fromMap: map)
+        XCTAssertEqual(prefs.publisherStyles, false)
+    }
+
     func testEPUBPreferencesFromMapMapsMultipleReadiumKeys() {
         let map: [String: String] = [
             "backgroundColor": "#1a1a1a",
@@ -46,6 +58,8 @@ final class ReadiumExtensionsMappingTests: XCTestCase {
             "fontSize": "1.2",
             "fontWeight": "0.8",
             "verticalScroll": "false",
+            "lineHeight": "1.5",
+            "publisherStyles": "false",
         ]
         let prefs = EPUBPreferences(fromMap: map)
         XCTAssertNotNil(prefs.backgroundColor)
@@ -53,6 +67,8 @@ final class ReadiumExtensionsMappingTests: XCTestCase {
         XCTAssertEqual(prefs.fontSize, 1.2)
         XCTAssertEqual(prefs.fontWeight, 0.8)
         XCTAssertEqual(prefs.scroll, false)
+        XCTAssertEqual(prefs.lineHeight, 1.5)
+        XCTAssertEqual(prefs.publisherStyles, false)
     }
 
     func testEPUBPreferencesFromMapEmptyMapProducesDefaultPrefs() {
@@ -63,6 +79,22 @@ final class ReadiumExtensionsMappingTests: XCTestCase {
         XCTAssertNil(prefs.textColor)
         XCTAssertNil(prefs.fontSize)
         XCTAssertNil(prefs.scroll)
+        XCTAssertNil(prefs.lineHeight)
+        XCTAssertNil(prefs.publisherStyles)
+        XCTAssertNil(prefs.fontFamily)
+    }
+
+    func testEPUBPreferencesFromMapOmitsFontFamilyKeepsPublisherFonts() {
+        // Line height + publisherStyles without a fontFamily key: Readium should
+        // leave the publication's typeface alone while applying line height.
+        let map: [String: String] = [
+            "lineHeight": "1.5",
+            "publisherStyles": "false",
+        ]
+        let prefs = EPUBPreferences(fromMap: map)
+        XCTAssertNil(prefs.fontFamily)
+        XCTAssertEqual(prefs.lineHeight, 1.5)
+        XCTAssertEqual(prefs.publisherStyles, false)
     }
 
     // MARK: - PDFPreferences.init(fromMap:) — Readium key mapping
