@@ -17,6 +17,7 @@
 - Dart: added constructor/`toJson` coverage for `lineHeight`/`publisherStyles` in `preferences_test.dart`, plus cases that omit `fontFamily` so publisher fonts are preserved.
 - Android JVM: new `FlutterEpubPreferencesTest` covers `epubPreferencesFromMap` parsing, default fallback, and override behaviour for both fields (including missing `fontFamily`).
 - iOS: extended `ReadiumExtensionsMappingTests` and the example app's `ReadiumExtensionsTests` with `publisherStyles` mapping cases alongside the existing `lineHeight` case.
+- Example app: new `EpubPreferencesDemoPage` (open via **Prefs Demo**) loads an online Readium sample EPUB and live-demos `lineHeight`, `publisherStyles`, and optional `fontFamily`.
 
 ## 0.14.1
 
