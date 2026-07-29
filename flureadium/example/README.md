@@ -6,7 +6,9 @@ A minimal single-screen Flutter app that exercises all flureadium plugin capabil
 
 ```
 lib/
-└── main.dart           # Single file — ExampleApp + ReaderPage
+├── main.dart                  # ExampleApp + ReaderPage (integration-test host)
+├── epub_preferences_demo.dart # Dedicated screen for lineHeight / publisherStyles / optional fontFamily
+└── audio_stream_fixtures.dart # Local HTTP fixtures for audiobook stream tests
 integration_test/
 ├── launch_test.dart        # App launches without crash
 ├── epub_test.dart          # Open EPUB, navigate, preferences, highlight, close
@@ -21,6 +23,10 @@ test/
 ```
 
 The app auto-opens `moby_dick.epub` on launch. A control panel at the bottom lets you switch publication types, navigate, adjust preferences, control TTS and audio, and add highlights. Tap the reader to toggle the panel.
+
+Example actions live in the navigation drawer, grouped as **Publications**, **Navigation**, **EPUB Preferences**, **Annotations**, **Text-to-speech**, and **Audio**.
+
+Tap **Prefs Demo** (drawer → **EPUB Preferences**) for a Material 3 reader with a draggable settings sheet. It loads an online sample EPUB (default: IDPF [Accessible EPUB 3](https://github.com/IDPF/epub3-samples); also Moby Dick WebPub and Les Diaboliques) and lets you live-tune `lineHeight`, `publisherStyles`, and optional `fontFamily` (publisher fonts vs custom override).
 
 ## Running the Example
 
@@ -57,14 +63,24 @@ final pub = await flureadium.openPublication('https://example.com/book.epub');
 ### Visual Reading
 
 ```dart
-// Customize appearance
+// Customize appearance — keep publisher fonts, adjust line height
 await flureadium.setEPUBPreferences(EPUBPreferences(
-  fontFamily: 'Georgia',
+  // fontFamily omitted → keep the EPUB's own fonts
   fontSize: 120,  // 1.2em
+  fontWeight: null,
+  verticalScroll: false,
   backgroundColor: Color(0xFFF5E6D3),  // Sepia
+  textColor: Color(0xFF5C4033),
   pageMargins: 0.1,  // 10% margins
+  lineHeight: 1.5,
+  publisherStyles: false,  // required for lineHeight to take effect
 ));
 
+// Or open the in-app Preferences Demo screen (online sample EPUB):
+// tap "Prefs Demo" in the control panel.
+```
+
+```dart
 // Navigate
 await flureadium.goLeft();
 await flureadium.goRight();

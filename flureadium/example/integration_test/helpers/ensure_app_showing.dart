@@ -1,6 +1,6 @@
 import 'package:flureadium/flureadium.dart';
 import 'package:flureadium_example/main.dart' as app;
-import 'package:flutter/widgets.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'pump_until.dart';
@@ -21,6 +21,33 @@ bool _readerMounted(WidgetTester tester) =>
 /// module-global flag leaks across files or suite re-runs.
 bool appAlreadyShowing(WidgetTester tester, String reopenButton) =>
     _readerMounted(tester) || find.text(reopenButton).evaluate().isNotEmpty;
+
+/// Opens the example [Drawer] when it is closed so labeled actions are hittable.
+Future<void> openExampleDrawer(WidgetTester tester) async {
+  final scaffold = tester.state<ScaffoldState>(find.byType(Scaffold).first);
+  // Force a clean open — drawer position can be stale after async pumps.
+  if (scaffold.isDrawerOpen) {
+    scaffold.closeDrawer();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+  }
+  scaffold.openDrawer();
+  await tester.pump();
+  await tester.pump(const Duration(milliseconds: 400));
+}
+
+/// Opens the drawer if needed, scrolls [label] into view, then taps it.
+Future<void> tapExampleAction(WidgetTester tester, String label) async {
+  await openExampleDrawer(tester);
+  final tile = find.widgetWithText(ListTile, label);
+  final scrollable = find.descendant(
+    of: find.byType(Drawer),
+    matching: find.byType(Scrollable),
+  );
+  await tester.scrollUntilVisible(tile, 300, scrollable: scrollable);
+  await tester.pump();
+  await tester.tap(tile);
+}
 
 /// Ensures the example app is on screen showing the wanted publication.
 ///
@@ -53,7 +80,7 @@ Future<void> ensureAppShowing(
     if (!openAfterColdBoot) return;
   }
   final gen = _openGeneration(tester);
-  await tester.tap(find.text(reopenButton));
+  await tapExampleAction(tester, reopenButton);
   await pumpUntil(
     tester,
     () => _openGeneration(tester) > gen,

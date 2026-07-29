@@ -34,9 +34,9 @@ void main() {
 
       expect(find.byType(ReadiumReaderWidget), findsOneWidget);
 
-      await tester.tap(find.text('→'));
+      await tapExampleAction(tester, '→');
       await tester.pump(const Duration(seconds: 1));
-      await tester.tap(find.text('←'));
+      await tapExampleAction(tester, '←');
       await tester.pump(const Duration(seconds: 1));
 
       expect(find.byType(ReadiumReaderWidget), findsOneWidget);
@@ -54,15 +54,15 @@ void main() {
       expect(find.byType(ReadiumReaderWidget), findsOneWidget);
 
       // Navigate forward two pages
-      await tester.tap(find.text('→'));
+      await tapExampleAction(tester, '→');
       await tester.pump(const Duration(seconds: 2));
-      await tester.tap(find.text('→'));
+      await tapExampleAction(tester, '→');
       await tester.pump(const Duration(seconds: 2));
 
       // Navigate back to previously visited pages (cache hit path on iOS)
-      await tester.tap(find.text('←'));
+      await tapExampleAction(tester, '←');
       await tester.pump(const Duration(seconds: 2));
-      await tester.tap(find.text('←'));
+      await tapExampleAction(tester, '←');
       await tester.pump(const Duration(seconds: 2));
 
       expect(find.byType(ReadiumReaderWidget), findsOneWidget);

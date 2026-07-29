@@ -4,6 +4,7 @@ import 'package:integration_test/integration_test.dart';
 
 import 'package:flureadium_example/main.dart' as app;
 
+import 'helpers/ensure_app_showing.dart';
 import 'helpers/pump_until.dart';
 
 void main() {
@@ -17,7 +18,7 @@ void main() {
     // animating while the EPUB auto-open runs (and fails on web). Use pump
     // with a fixed duration instead.
     await tester.pump(const Duration(seconds: 2));
-    await tester.tap(find.text('Open WebPub'));
+    await tapExampleAction(tester, 'Open WebPub');
     // Poll for the reader widget — remote manifest fetch typically completes in 2-5s.
     // Ceiling 15s (was 10s fixed) for slow/flaky networks.
     await pumpUntil(

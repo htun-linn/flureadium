@@ -4,6 +4,7 @@ import 'package:integration_test/integration_test.dart';
 
 import 'package:flureadium_example/main.dart' as app;
 
+import 'helpers/ensure_app_showing.dart';
 import 'helpers/pump_until.dart';
 
 Future<void> _waitForReader(WidgetTester tester) async {
@@ -26,7 +27,7 @@ void _navigationTests(String assetLabel, String Function() openButtonLabel) {
       app.main();
       await _waitForReader(tester);
       if (openButtonLabel() != 'default') {
-        await tester.tap(find.text(openButtonLabel()));
+        await tapExampleAction(tester, openButtonLabel());
         await _waitForReader(tester);
       }
       expect(find.byType(ReadiumReaderWidget), findsOneWidget);
@@ -36,14 +37,14 @@ void _navigationTests(String assetLabel, String Function() openButtonLabel) {
       app.main();
       await _waitForReader(tester);
       if (openButtonLabel() != 'default') {
-        await tester.tap(find.text(openButtonLabel()));
+        await tapExampleAction(tester, openButtonLabel());
         await _waitForReader(tester);
       }
-      await tester.tap(find.text('←'));
+      await tapExampleAction(tester, '←');
       for (var i = 0; i < 3; i++) {
         await tester.pump(const Duration(seconds: 1));
       }
-      await tester.tap(find.text('→'));
+      await tapExampleAction(tester, '→');
       for (var i = 0; i < 3; i++) {
         await tester.pump(const Duration(seconds: 1));
       }
@@ -54,10 +55,10 @@ void _navigationTests(String assetLabel, String Function() openButtonLabel) {
       app.main();
       await _waitForReader(tester);
       if (openButtonLabel() != 'default') {
-        await tester.tap(find.text(openButtonLabel()));
+        await tapExampleAction(tester, openButtonLabel());
         await _waitForReader(tester);
       }
-      await tester.tap(find.text('DartSkip+'));
+      await tapExampleAction(tester, 'DartSkip+');
       for (var i = 0; i < 5; i++) {
         await tester.pump(const Duration(seconds: 1));
       }
@@ -68,10 +69,10 @@ void _navigationTests(String assetLabel, String Function() openButtonLabel) {
       app.main();
       await _waitForReader(tester);
       if (openButtonLabel() != 'default') {
-        await tester.tap(find.text(openButtonLabel()));
+        await tapExampleAction(tester, openButtonLabel());
         await _waitForReader(tester);
       }
-      await tester.tap(find.text('DartSkip-'));
+      await tapExampleAction(tester, 'DartSkip-');
       for (var i = 0; i < 5; i++) {
         await tester.pump(const Duration(seconds: 1));
       }
@@ -112,7 +113,7 @@ void main() {
     testWidgets('Go To Saved does not crash', (tester) async {
       app.main();
       await _waitForReader(tester);
-      await tester.tap(find.text('Go To Saved'));
+      await tapExampleAction(tester, 'Go To Saved');
       for (var i = 0; i < 5; i++) {
         await tester.pump(const Duration(seconds: 1));
       }
@@ -122,7 +123,7 @@ void main() {
     testWidgets('apply night theme preferences', (tester) async {
       app.main();
       await _waitForReader(tester);
-      await tester.tap(find.text('Night'));
+      await tapExampleAction(tester, 'Night');
       for (var i = 0; i < 3; i++) {
         await tester.pump(const Duration(seconds: 1));
       }
@@ -132,7 +133,7 @@ void main() {
     testWidgets('apply decoration to current locator', (tester) async {
       app.main();
       await _waitForReader(tester);
-      await tester.tap(find.text('Highlight'));
+      await tapExampleAction(tester, 'Highlight');
       for (var i = 0; i < 3; i++) {
         await tester.pump(const Duration(seconds: 1));
       }
@@ -156,7 +157,7 @@ void main() {
       await _waitForReader(tester);
 
       // Dispose the reader — the old bug end-streamed the subscription here.
-      await tester.tap(find.text('Close'));
+      await tapExampleAction(tester, 'Close');
       await tester.pump(const Duration(seconds: 3));
 
       expect(
@@ -171,7 +172,7 @@ void main() {
     testWidgets('close publication removes reader widget', (tester) async {
       app.main();
       await _waitForReader(tester);
-      await tester.tap(find.text('Close'));
+      await tapExampleAction(tester, 'Close');
       // After close, _publication is null and CircularProgressIndicator keeps
       // animating — pumpAndSettle would never settle. Use pump instead.
       await tester.pump(const Duration(seconds: 5));
@@ -181,7 +182,7 @@ void main() {
     testWidgets('Load Only does not crash', (tester) async {
       app.main();
       await _waitForReader(tester);
-      await tester.tap(find.text('Load Only'));
+      await tapExampleAction(tester, 'Load Only');
       for (var i = 0; i < 5; i++) {
         await tester.pump(const Duration(seconds: 1));
       }

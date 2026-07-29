@@ -104,7 +104,7 @@ void main() {
 
     testWidgets('audio play changes button to Audio Pause', (tester) async {
       await showAudiobook(tester);
-      await tester.tap(find.text('Audio Play'));
+      await tapExampleAction(tester, 'Audio Play');
       // audioEnable() + play() + setState; poll for the button (max 15s).
       await waitForPlaying(tester);
       expect(find.text('Audio Pause'), findsOneWidget);
@@ -112,19 +112,19 @@ void main() {
 
     testWidgets('audioSeekBy does not crash', (tester) async {
       await showAudiobook(tester);
-      await tester.tap(find.text('Audio Play'));
+      await tapExampleAction(tester, 'Audio Play');
       await waitForPlaying(tester);
-      await tester.tap(find.text('+30s'));
+      await tapExampleAction(tester, '+30s');
       await tester.pump(const Duration(seconds: 2));
       expect(find.text('Audio Pause'), findsOneWidget);
     });
 
     testWidgets('pause then resume restores playback', (tester) async {
       await showAudiobook(tester);
-      await tester.tap(find.text('Audio Play'));
+      await tapExampleAction(tester, 'Audio Play');
       await waitForPlaying(tester);
 
-      await tester.tap(find.text('Audio Pause'));
+      await tapExampleAction(tester, 'Audio Pause');
       await pumpUntil(
         tester,
         () => find.text('Audio Resume').evaluate().isNotEmpty,
@@ -132,7 +132,7 @@ void main() {
       );
       expect(find.text('Audio Resume'), findsOneWidget);
 
-      await tester.tap(find.text('Audio Resume'));
+      await tapExampleAction(tester, 'Audio Resume');
       await waitForPlaying(tester, timeout: const Duration(seconds: 5));
       expect(find.text('Audio Pause'), findsOneWidget);
     });
@@ -142,10 +142,10 @@ void main() {
       // drives when the listener picks a chapter or hits next-track. This
       // guards that the MediaLibraryService migration left it working.
       await showAudiobook(tester);
-      await tester.tap(find.text('Audio Play'));
+      await tapExampleAction(tester, 'Audio Play');
       await waitForPlaying(tester);
 
-      await tester.tap(find.text('Skip Next'));
+      await tapExampleAction(tester, 'Skip Next');
       await waitForPlaying(tester, timeout: const Duration(seconds: 10));
       expect(find.text('Audio Pause'), findsOneWidget);
     });
@@ -156,14 +156,14 @@ void main() {
       // backward seek. Skip Next is tested above; this guards the symmetric
       // previous path through the shared navigator.
       await showAudiobook(tester);
-      await tester.tap(find.text('Audio Play'));
+      await tapExampleAction(tester, 'Audio Play');
       await waitForPlaying(tester);
 
       // Advance a chapter first so there is a previous chapter to skip back to.
-      await tester.tap(find.text('Skip Next'));
+      await tapExampleAction(tester, 'Skip Next');
       await waitForPlaying(tester, timeout: const Duration(seconds: 10));
 
-      await tester.tap(find.text('Skip Prev'));
+      await tapExampleAction(tester, 'Skip Prev');
       await waitForPlaying(tester, timeout: const Duration(seconds: 10));
       expect(find.text('Audio Pause'), findsOneWidget);
     });
@@ -176,13 +176,13 @@ void main() {
         // old delegate re-read playbackInfo -> currentTime() -> __ulock_wait. This
         // guards the cached-state fix.
         await showAudiobook(tester);
-        await tester.tap(find.text('Audio Play'));
+        await tapExampleAction(tester, 'Audio Play');
         await waitForPlaying(tester);
         // Advance to track 2 so the next go(to:) crosses a real track boundary.
-        await tester.tap(find.text('Skip Next'));
+        await tapExampleAction(tester, 'Skip Next');
         await waitForPlaying(tester, timeout: const Duration(seconds: 10));
         // Cross-boundary go-to while playing — the path that deadlocked pre-fix.
-        await tester.tap(find.text('Ch.1'));
+        await tapExampleAction(tester, 'Ch.1');
         await waitForPlaying(tester);
         expect(find.text('Audio Pause'), findsOneWidget);
       },
@@ -198,7 +198,7 @@ void main() {
         // play(fromLocator) opens a session — goToLocator ('Ch.1') uses the
         // separate go path — so drive play() directly with a non-null locator.
         await showAudiobook(tester);
-        await tester.tap(find.text('Audio Play'));
+        await tapExampleAction(tester, 'Audio Play');
         await waitForPlaying(tester);
 
         final before = currentTrack(tester);
@@ -245,11 +245,11 @@ void main() {
       // builders down their "Chapter N" fallback path with the actual audio
       // engine — the path that is otherwise only unit-tested with mock pubs.
       await showAudiobook(tester, button: 'Open AudioBook NoTitle');
-      await tester.tap(find.text('Audio Play'));
+      await tapExampleAction(tester, 'Audio Play');
       await waitForPlaying(tester);
 
       // Skip into the untitled second chapter.
-      await tester.tap(find.text('Skip Next'));
+      await tapExampleAction(tester, 'Skip Next');
       await waitForPlaying(tester, timeout: const Duration(seconds: 10));
       expect(find.text('Audio Pause'), findsOneWidget);
     });
@@ -259,12 +259,12 @@ void main() {
       // next reading-order track — not seek inside the current one. The bug
       // this guards made next() a 30s seek, so the track never changed.
       await showAudiobook(tester);
-      await tester.tap(find.text('Audio Play'));
+      await tapExampleAction(tester, 'Audio Play');
       await waitForPlaying(tester);
 
       final before = currentTrack(tester);
 
-      await tester.tap(find.text('Audio Next Chapter'));
+      await tapExampleAction(tester, 'Audio Next Chapter');
       await pumpUntil(
         tester,
         () => currentTrack(tester) != before,
@@ -281,12 +281,12 @@ void main() {
       // move exactly one track and clamp at the ends, so this leaves the
       // current track unchanged and does not crash.
       await showAudiobook(tester);
-      await tester.tap(find.text('Audio Play'));
+      await tapExampleAction(tester, 'Audio Play');
       await waitForPlaying(tester);
 
       final before = currentTrack(tester);
 
-      await tester.tap(find.text('Audio Prev Chapter'));
+      await tapExampleAction(tester, 'Audio Prev Chapter');
       // Fixed settle wait: there is no state change to poll for — assert the
       // track stayed put after giving the no-op time to (not) act.
       for (var i = 0; i < 5; i++) {
@@ -309,7 +309,7 @@ void main() {
       // it (that clamps to paused). So advance to the last track, seek to just
       // before its end, and let it play out naturally instead of over-seeking.
       await showAudiobook(tester);
-      await tester.tap(find.text('Audio Play'));
+      await tapExampleAction(tester, 'Audio Play');
       await waitForPlaying(tester);
 
       // Jump straight to the last reading-order track instead of skipping
@@ -338,7 +338,7 @@ void main() {
       for (var seek = 0; seek < 20; seek++) {
         final p = timebasedPosition(tester);
         if (p.durMs <= 0 || p.durMs - p.posMs <= 30000 + tailMs) break;
-        await tester.tap(find.text('+30s'));
+        await tapExampleAction(tester, '+30s');
         await tester.pump(const Duration(seconds: 1));
         await tester.pump(const Duration(seconds: 1));
       }
@@ -368,7 +368,7 @@ void main() {
       // ever starts. iOS uses AVFoundation and was never affected, but the
       // positive streamed open-and-play contract holds on both platforms.
       await showAudiobook(tester, button: 'Open AudioBook Streamed');
-      await tester.tap(find.text('Audio Play'));
+      await tapExampleAction(tester, 'Audio Play');
       await waitForPlaying(tester, timeout: const Duration(seconds: 20));
       expect(find.text('Audio Pause'), findsOneWidget);
     });
@@ -384,7 +384,7 @@ void main() {
       // the failed resource read during opening and routes it onto the error
       // channel, so a load that never starts playing is no longer silent.
       await showAudiobook(tester, button: 'Open AudioBook BadUrl');
-      await tester.tap(find.text('Audio Play'));
+      await tapExampleAction(tester, 'Audio Play');
 
       final surfaced = await pumpUntil(
         tester,
@@ -411,7 +411,7 @@ void main() {
       // platform-specific/ios.md). The Android forwarding itself is also
       // covered by the ReadiumReaderTimebasedErrorTest unit test.
       await showAudiobook(tester, button: 'Open AudioBook BadStream');
-      await tester.tap(find.text('Audio Play'));
+      await tapExampleAction(tester, 'Audio Play');
 
       final surfaced = await pumpUntil(
         tester,
@@ -438,12 +438,12 @@ void main() {
         // assertion is non-vacuous — if no cancellation happened the latch
         // stays false and the test fails instead of passing trivially.
         await showAudiobook(tester, button: 'Open AudioBook Streamed');
-        await tester.tap(find.text('Audio Play'));
+        await tapExampleAction(tester, 'Audio Play');
         await waitForPlaying(tester, timeout: const Duration(seconds: 20));
 
         // Seek forward repeatedly to supersede in-flight read-ahead requests.
         for (var i = 0; i < 6; i++) {
-          await tester.tap(find.text('+30s'));
+          await tapExampleAction(tester, '+30s');
           await tester.pump(const Duration(seconds: 1));
         }
 

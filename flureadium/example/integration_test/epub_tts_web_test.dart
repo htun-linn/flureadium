@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 
 import 'package:flureadium_example/main.dart' as app;
+import 'helpers/ensure_app_showing.dart';
 
 /// Web TTS integration tests.
 ///
@@ -33,13 +34,13 @@ void main() {
     ) async {
       app.main();
       await tester.pump(const Duration(seconds: 2));
-      await tester.tap(find.text('Open WebPub'));
+      await tapExampleAction(tester, 'Open WebPub');
       // Pump many frames so the browser event loop can process JS promises
       // (manifest fetch, navigator init, setNav callback).
       for (int i = 0; i < 30; i++) {
         await tester.pump(const Duration(milliseconds: 500));
       }
-      await tester.tap(find.text('TTS On'));
+      await tapExampleAction(tester, 'TTS On');
       for (int i = 0; i < 10; i++) {
         await tester.pump(const Duration(milliseconds: 500));
       }
@@ -51,11 +52,11 @@ void main() {
     ) async {
       app.main();
       await tester.pump(const Duration(seconds: 2));
-      await tester.tap(find.text('Open WebPub'));
+      await tapExampleAction(tester, 'Open WebPub');
       for (int i = 0; i < 30; i++) {
         await tester.pump(const Duration(milliseconds: 500));
       }
-      await tester.tap(find.text('TTS On'));
+      await tapExampleAction(tester, 'TTS On');
       for (int i = 0; i < 10; i++) {
         await tester.pump(const Duration(milliseconds: 500));
       }
@@ -65,15 +66,15 @@ void main() {
     testWidgets('tts enable then stop does not throw', (tester) async {
       app.main();
       await tester.pump(const Duration(seconds: 2));
-      await tester.tap(find.text('Open WebPub'));
+      await tapExampleAction(tester, 'Open WebPub');
       for (int i = 0; i < 30; i++) {
         await tester.pump(const Duration(milliseconds: 500));
       }
-      await tester.tap(find.text('TTS On'));
+      await tapExampleAction(tester, 'TTS On');
       for (int i = 0; i < 10; i++) {
         await tester.pump(const Duration(milliseconds: 500));
       }
-      await tester.tap(find.text('TTS Off'));
+      await tapExampleAction(tester, 'TTS Off');
       for (int i = 0; i < 4; i++) {
         await tester.pump(const Duration(milliseconds: 500));
       }

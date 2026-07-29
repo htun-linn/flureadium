@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flureadium/flureadium.dart';
 import 'audio_stream_fixtures.dart';
+import 'epub_preferences_demo.dart';
 
 const _defaultInitialAsset = String.fromEnvironment(
   'FLUREADIUM_INITIAL_ASSET',
@@ -25,8 +26,29 @@ class ExampleApp extends StatelessWidget {
   final String initialAsset;
 
   @override
-  Widget build(BuildContext context) =>
-      MaterialApp(home: ReaderPage(initialAsset: initialAsset));
+  Widget build(BuildContext context) {
+    final colorScheme = ColorScheme.fromSeed(seedColor: const Color(0xFF3D5A80), brightness: Brightness.light);
+    return MaterialApp(
+      title: 'Flureadium Example',
+      theme: ThemeData(
+        useMaterial3: true,
+        colorScheme: colorScheme,
+        appBarTheme: AppBarTheme(
+          centerTitle: false,
+          backgroundColor: colorScheme.surface,
+          foregroundColor: colorScheme.onSurface,
+          elevation: 0,
+          scrolledUnderElevation: 1,
+        ),
+        filledButtonTheme: FilledButtonThemeData(style: FilledButton.styleFrom(minimumSize: const Size(48, 48))),
+        snackBarTheme: SnackBarThemeData(
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        ),
+      ),
+      home: ReaderPage(initialAsset: initialAsset),
+    );
+  }
 }
 
 class ReaderPage extends StatefulWidget {
@@ -78,6 +100,7 @@ class _ReaderPageState extends State<ReaderPage> {
   StreamSubscription<Locator>? _locatorSub;
   StreamSubscription<ReadiumError>? _errorSub;
   StreamSubscription<ReadiumTimebasedState>? _timebasedSub;
+  final _scaffoldKey = GlobalKey<ScaffoldState>();
 
   // Cycled by the "Line Height" button to manually verify lineHeight support
   // on both platforms. publisherStyles must be false for lineHeight to apply.
@@ -103,9 +126,9 @@ class _ReaderPageState extends State<ReaderPage> {
         _ttsErrorType = _ttsEnabled ? s.ttsErrorType : null;
       }),
     );
-    WidgetsBinding.instance.addPostFrameCallback(
-      (_) => _openPublicationAsset(widget.initialAsset),
-    );
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _openPublicationAsset(widget.initialAsset);
+    });
   }
 
   // Called by ReadiumReaderWidget.onReady, which fires from _onPlatformViewCreated
@@ -117,9 +140,7 @@ class _ReaderPageState extends State<ReaderPage> {
     _statusSub?.cancel();
     _locatorSub?.cancel();
     _errorSub?.cancel();
-    _statusSub = _flureadium.onReaderStatusChanged.listen(
-      (s) => debugPrint('ReaderStatus: $s'),
-    );
+    _statusSub = _flureadium.onReaderStatusChanged.listen((s) => debugPrint('ReaderStatus: $s'));
     _locatorSub = _flureadium.onTextLocatorChanged.listen(
       (l) => setState(() {
         _locator = l;
@@ -192,9 +213,7 @@ class _ReaderPageState extends State<ReaderPage> {
 
   Future<void> _openAudiobookUntitledChapter() async {
     try {
-      final path = await _extractAsset(
-        'assets/pubs/untitled_chapter.audiobook',
-      );
+      final path = await _extractAsset('assets/pubs/untitled_chapter.audiobook');
       final pub = await _flureadium.openPublication(path);
       if (!mounted) return;
       setState(() {
@@ -424,8 +443,7 @@ class _ReaderPageState extends State<ReaderPage> {
   Future<void> _openWebPub() async {
     try {
       await _flureadium.setCustomHeaders({'X-Example': 'flureadium-demo'});
-      const url =
-          'https://readium.org/webpub-manifest/examples/MobyDick/manifest.json';
+      const url = 'https://readium.org/webpub-manifest/examples/MobyDick/manifest.json';
       final pub = await _flureadium.openPublication(url);
       if (!mounted) return;
       setState(() {
@@ -450,9 +468,7 @@ class _ReaderPageState extends State<ReaderPage> {
     }
     final bytes = await rootBundle.load(assetPath);
     final filename = assetPath.split('/').last;
-    final tmp = File(
-      '${Directory.systemTemp.path}/${DateTime.now().millisecondsSinceEpoch}_$filename',
-    );
+    final tmp = File('${Directory.systemTemp.path}/${DateTime.now().millisecondsSinceEpoch}_$filename');
     await tmp.writeAsBytes(bytes.buffer.asUint8List());
     return tmp.path;
   }
@@ -507,6 +523,19 @@ class _ReaderPageState extends State<ReaderPage> {
     );
   }
 
+  /// Opens the dedicated preferences demo (online sample EPUB). Closes the
+  /// current publication first because [Flureadium] is a singleton.
+  Future<void> _openPreferencesDemo() async {
+    await _flureadium.closePublication();
+    if (!mounted) return;
+    setState(() {
+      _publication = null;
+      _ttsEnabled = false;
+      _audioEnabled = false;
+    });
+    await Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const EpubPreferencesDemoPage()));
+  }
+
   Future<void> _toggleTts() async {
     if (_ttsEnabled) {
       _lastTtsLocator = _timebasedState?.currentLocator;
@@ -525,11 +554,9 @@ class _ReaderPageState extends State<ReaderPage> {
     final canSpeak = await _flureadium.ttsCanSpeak();
     if (!canSpeak) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('TTS is not supported for this publication'),
-          ),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('TTS is not supported for this publication')));
       }
       return;
     }
@@ -537,15 +564,9 @@ class _ReaderPageState extends State<ReaderPage> {
     // If the user navigated to a different page, start TTS from the current
     // reader position (fromLocator: null) instead of resuming from the saved
     // TTS locator — this prevents backward scrolling to the previous page.
-    final navigated =
-        _readerLocatorAtTtsDisable != null &&
-        _locator != null &&
-        _readerLocatorAtTtsDisable != _locator;
+    final navigated = _readerLocatorAtTtsDisable != null && _locator != null && _readerLocatorAtTtsDisable != _locator;
     final resumeLocator = navigated ? null : _lastTtsLocator;
-    await _flureadium.ttsEnable(
-      TTSPreferences(speed: _ttsSpeed),
-      fromLocator: resumeLocator,
-    );
+    await _flureadium.ttsEnable(TTSPreferences(speed: _ttsSpeed), fromLocator: resumeLocator);
     if (!mounted) return;
     // Set _ttsEnabled before play() so that the onTimebasedPlayerStateChanged
     // callback (which guards on _ttsEnabled) correctly captures the 'playing'
@@ -571,9 +592,7 @@ class _ReaderPageState extends State<ReaderPage> {
   Future<void> _showSystemVoices() async {
     final voices = await _flureadium.ttsGetSystemVoices();
     if (!mounted) return;
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text('System voices: ${voices.length}')));
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('System voices: ${voices.length}')));
   }
 
   Future<void> _nextVoice() async {
@@ -606,9 +625,7 @@ class _ReaderPageState extends State<ReaderPage> {
       } catch (e) {
         debugPrint('audioEnable error: $e');
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Audio playback unavailable: $e')),
-          );
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Audio playback unavailable: $e')));
         }
       }
     }
@@ -621,10 +638,7 @@ class _ReaderPageState extends State<ReaderPage> {
       ReaderDecoration(
         id: 'h_${DateTime.now().millisecondsSinceEpoch}',
         locator: loc,
-        style: ReaderDecorationStyle(
-          style: DecorationStyle.highlight,
-          tint: const Color(0xFFFFFF00),
-        ),
+        style: ReaderDecorationStyle(style: DecorationStyle.highlight, tint: const Color(0xFFFFFF00)),
       ),
     ]);
   }
@@ -635,8 +649,7 @@ class _ReaderPageState extends State<ReaderPage> {
     await _flureadium.goToLocator(loc);
   }
 
-  Future<void> _seekForward() =>
-      _flureadium.audioSeekBy(const Duration(seconds: 30));
+  Future<void> _seekForward() => _flureadium.audioSeekBy(const Duration(seconds: 30));
 
   Future<void> _nextChapter() => _flureadium.next();
 
@@ -645,8 +658,7 @@ class _ReaderPageState extends State<ReaderPage> {
   Future<void> _goToFirstChapter() async {
     final pub = _publication;
     if (pub == null) return;
-    final link =
-        pub.tableOfContents.firstOrNull ?? pub.readingOrder.firstOrNull;
+    final link = pub.tableOfContents.firstOrNull ?? pub.readingOrder.firstOrNull;
     if (link == null) return;
     await _flureadium.goByLink(link, pub);
   }
@@ -659,19 +671,15 @@ class _ReaderPageState extends State<ReaderPage> {
     }
   }
 
-  Future<void> _dartSkipToNext() async =>
-      FlureadiumPlatform.instance.currentReaderWidget?.skipToNext();
+  Future<void> _dartSkipToNext() async => FlureadiumPlatform.instance.currentReaderWidget?.skipToNext();
 
-  Future<void> _dartSkipToPrevious() async =>
-      FlureadiumPlatform.instance.currentReaderWidget?.skipToPrevious();
+  Future<void> _dartSkipToPrevious() async => FlureadiumPlatform.instance.currentReaderWidget?.skipToPrevious();
 
   Future<void> _loadOnly() async {
     try {
       final path = await _extractAsset('assets/pubs/moby_dick.epub');
       final pub = await _flureadium.loadPublication(path);
-      debugPrint(
-        'Loaded: ${pub.metadata.title} (${pub.tableOfContents.length} chapters)',
-      );
+      debugPrint('Loaded: ${pub.metadata.title} (${pub.tableOfContents.length} chapters)');
     } catch (e) {
       debugPrint('loadOnly error: $e');
     }
@@ -684,304 +692,450 @@ class _ReaderPageState extends State<ReaderPage> {
     return '$m:$s';
   }
 
+  void _closeDrawer() {
+    if (_scaffoldKey.currentState?.isDrawerOpen ?? false) {
+      Navigator.of(context).pop();
+    }
+  }
+
+  Future<void> _runDrawerAction(FutureOr<void> Function() action) async {
+    _closeDrawer();
+    await action();
+  }
+
+  /// Debug lines shown in the drawer. When [keyed] is true, attach the Keys
+  /// integration tests read — those copies live in an always-mounted Offstage
+  /// because Scaffold builds [drawer] lazily on first open.
+  List<Widget> _debugStatusLines({TextStyle? style, bool keyed = false}) {
+    return [
+      if (_timebasedState case final s?)
+        Text(
+          '${_fmtDuration(s.currentOffset)} / ${_fmtDuration(s.currentDuration)}',
+          style: style,
+        ),
+      Text(
+        key: keyed ? const Key('open-generation') : null,
+        'open-generation: $_openGeneration',
+        style: style,
+      ),
+      Text(
+        key: keyed ? const Key('current-track') : null,
+        'track: ${_timebasedState?.currentLocator?.locations?.position ?? '-'} '
+        '${_timebasedState?.currentLocator?.href ?? ''}',
+        style: style,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      ),
+      Text(
+        key: keyed ? const Key('timebased-state') : null,
+        'state: ${_timebasedState?.state.name ?? '-'}',
+        style: style,
+      ),
+      Text(
+        key: keyed ? const Key('timebased-position') : null,
+        'pos: ${_timebasedState?.currentOffset?.inMilliseconds ?? -1} '
+        'dur: ${_timebasedState?.currentDuration?.inMilliseconds ?? -1}',
+        style: style,
+      ),
+      Text(
+        key: keyed ? const Key('ended-seen') : null,
+        'ended-seen: $_endedSeen',
+        style: style,
+      ),
+      Text(
+        key: keyed ? const Key('audio-error') : null,
+        'audio-error: $_lastAudioError',
+        style: style,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      ),
+      Text(
+        key: keyed ? const Key('cancelled-stream-disconnect-seen') : null,
+        'cancelled-stream-disconnect-seen: $_cancelledStreamDisconnectSeen',
+        style: style,
+      ),
+      Text(
+        key: keyed ? const Key('locator_href') : null,
+        _locator?.href ?? '',
+        style: style,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      ),
+    ];
+  }
+
   @override
   Widget build(BuildContext context) {
     final pub = _publication;
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+    final debugStyle = textTheme.bodySmall?.copyWith(
+      color: colorScheme.onSurfaceVariant,
+      fontFamily: 'monospace',
+      fontSize: 11,
+    );
+
     return Scaffold(
+      key: _scaffoldKey,
+      appBar: AppBar(title: const Text('Flureadium Example')),
+      drawer: Drawer(
+        child: SafeArea(
+          child: SingleChildScrollView(
+            padding: EdgeInsets.zero,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+              Material(
+                color: colorScheme.surfaceContainerLow,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 20, 16, 12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Controls', style: textTheme.titleLarge),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Open the menu to run example actions',
+                        style: textTheme.bodySmall?.copyWith(
+                          color: colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const Divider(height: 1),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Debug status',
+                      style: textTheme.titleSmall?.copyWith(
+                        color: colorScheme.primary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    ..._debugStatusLines(style: debugStyle),
+                  ],
+                ),
+              ),
+              const Divider(height: 1),
+              const _DrawerSectionLabel('Publications'),
+              ListTile(
+                leading: const Icon(Icons.menu_book_outlined),
+                title: const Text('Open EPUB'),
+                onTap: () => _runDrawerAction(_openEpub),
+              ),
+              ListTile(
+                leading: const Icon(Icons.account_tree_outlined),
+                title: const Text('Open Hierarchical'),
+                onTap: () => _runDrawerAction(_openHierarchical),
+              ),
+              ListTile(
+                leading: const Icon(Icons.headphones_outlined),
+                title: const Text('Open AudioBook'),
+                onTap: () => _runDrawerAction(_openAudiobook),
+              ),
+              ListTile(
+                leading: const Icon(Icons.title_outlined),
+                title: const Text('Open AudioBook NoTitle'),
+                onTap: () => _runDrawerAction(_openAudiobookUntitledChapter),
+              ),
+              ListTile(
+                leading: const Icon(Icons.link_off_outlined),
+                title: const Text('Open AudioBook BadUrl'),
+                onTap: () => _runDrawerAction(_openUnreachableAudiobook),
+              ),
+              ListTile(
+                leading: const Icon(Icons.cloud_off_outlined),
+                title: const Text('Open AudioBook BadStream'),
+                onTap: () => _runDrawerAction(_openMidStreamFailAudiobook),
+              ),
+              ListTile(
+                leading: const Icon(Icons.stream_outlined),
+                title: const Text('Open AudioBook Streamed'),
+                onTap: () => _runDrawerAction(_openStreamedAudiobook),
+              ),
+              ListTile(
+                leading: const Icon(Icons.photo_library_outlined),
+                title: const Text('Open CBZ'),
+                onTap: () => _runDrawerAction(_openCbz),
+              ),
+              ListTile(
+                leading: const Icon(Icons.auto_stories_outlined),
+                title: const Text('Open DIVINA'),
+                onTap: () => _runDrawerAction(_openDivina),
+              ),
+              ListTile(
+                leading: const Icon(Icons.language_outlined),
+                title: const Text('Open WebPub'),
+                onTap: () => _runDrawerAction(_openWebPub),
+              ),
+              ListTile(
+                leading: const Icon(Icons.download_outlined),
+                title: const Text('Load Only'),
+                onTap: () => _runDrawerAction(_loadOnly),
+              ),
+              ListTile(
+                leading: const Icon(Icons.close_outlined),
+                title: const Text('Close'),
+                onTap: () => _runDrawerAction(_close),
+              ),
+              const Divider(height: 1),
+              const _DrawerSectionLabel('Navigation'),
+              ListTile(
+                leading: const Icon(Icons.chevron_left),
+                title: const Text('←'),
+                onTap: () => _runDrawerAction(_flureadium.goLeft),
+              ),
+              ListTile(
+                leading: const Icon(Icons.chevron_right),
+                title: const Text('→'),
+                onTap: () => _runDrawerAction(_flureadium.goRight),
+              ),
+              ListTile(
+                leading: const Icon(Icons.skip_previous_outlined),
+                title: const Text('Skip Prev'),
+                onTap: () => _runDrawerAction(_flureadium.skipToPrevious),
+              ),
+              ListTile(
+                leading: const Icon(Icons.skip_next_outlined),
+                title: const Text('Skip Next'),
+                onTap: () => _runDrawerAction(_flureadium.skipToNext),
+              ),
+              ListTile(
+                leading: const Icon(Icons.keyboard_double_arrow_left),
+                title: const Text('DartSkip-'),
+                onTap: () => _runDrawerAction(_dartSkipToPrevious),
+              ),
+              ListTile(
+                leading: const Icon(Icons.keyboard_double_arrow_right),
+                title: const Text('DartSkip+'),
+                onTap: () => _runDrawerAction(_dartSkipToNext),
+              ),
+              if (pub != null)
+                ListTile(
+                  leading: const Icon(Icons.bookmark_outline),
+                  title: const Text('Go To Saved'),
+                  onTap: () => _runDrawerAction(_goToSaved),
+                ),
+              if (pub != null)
+                ListTile(
+                  leading: const Icon(Icons.looks_one_outlined),
+                  title: const Text('Ch.1'),
+                  onTap: () => _runDrawerAction(_goToFirstChapter),
+                ),
+              const Divider(height: 1),
+              const _DrawerSectionLabel('EPUB Preferences'),
+              ListTile(
+                leading: const Icon(Icons.dark_mode_outlined),
+                title: const Text('Night'),
+                subtitle: const Text('Apply dark theme preferences'),
+                onTap: () => _runDrawerAction(_setNightPreferences),
+              ),
+              ListTile(
+                leading: const Icon(Icons.format_line_spacing_outlined),
+                title: Text(
+                  'Line Height '
+                  '${_lineHeightPresets[_lineHeightIndex]}',
+                ),
+                subtitle: const Text('Cycle 1.0 → 1.5 → 2.0 on current book'),
+                onTap: () => _runDrawerAction(_cycleLineHeight),
+              ),
+              ListTile(
+                leading: const Icon(Icons.tune_outlined),
+                title: const Text('Prefs Demo'),
+                subtitle: const Text(
+                  'lineHeight, publisherStyles, optional fontFamily',
+                ),
+                onTap: () => _runDrawerAction(_openPreferencesDemo),
+              ),
+              const Divider(height: 1),
+              const _DrawerSectionLabel('Annotations'),
+              ListTile(
+                leading: const Icon(Icons.highlight_outlined),
+                title: const Text('Highlight'),
+                onTap: () => _runDrawerAction(_addHighlight),
+              ),
+              const Divider(height: 1),
+              const _DrawerSectionLabel('Text-to-speech'),
+              ListTile(
+                leading: const Icon(Icons.record_voice_over_outlined),
+                title: const Text('OS TTS'),
+                onTap: () => _runDrawerAction(_showSystemVoices),
+              ),
+              ListTile(
+                leading: Icon(_ttsEnabled ? Icons.stop_circle_outlined : Icons.play_circle_outline),
+                title: Text(_ttsEnabled ? 'TTS Off' : 'TTS On'),
+                onTap: () => _runDrawerAction(_toggleTts),
+              ),
+              if (_ttsEnabled && _ttsPlaybackState != null)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                  child: Text(
+                    'TTS: ${_ttsPlaybackState!.name}',
+                    style: textTheme.bodyMedium?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ),
+              if (_ttsEnabled && _ttsPlaybackState == TimebasedState.playing)
+                ListTile(
+                  leading: const Icon(Icons.pause_outlined),
+                  title: const Text('Pause TTS'),
+                  onTap: () => _runDrawerAction(_ttsPause),
+                ),
+              if (_ttsEnabled && _ttsPlaybackState == TimebasedState.paused)
+                ListTile(
+                  leading: const Icon(Icons.play_arrow_outlined),
+                  title: const Text('Resume TTS'),
+                  onTap: () => _runDrawerAction(_ttsResume),
+                ),
+              if (_ttsErrorType == TtsErrorType.languageMissingData)
+                ListTile(
+                  leading: const Icon(Icons.download_outlined),
+                  title: const Text('Install Voice'),
+                  onTap: () => _runDrawerAction(_installVoice),
+                ),
+              if (_ttsEnabled && _voices.isNotEmpty)
+                ListTile(
+                  leading: const Icon(Icons.voice_chat_outlined),
+                  title: Text('Voice ${_voiceIndex + 1}/${_voices.length}'),
+                  onTap: () => _runDrawerAction(_nextVoice),
+                ),
+              if (_ttsEnabled) ...[
+                ListTile(
+                  leading: const Icon(Icons.keyboard_arrow_up),
+                  title: const Text('Prev Sentence'),
+                  onTap: () => _runDrawerAction(_flureadium.previous),
+                ),
+                ListTile(
+                  leading: const Icon(Icons.keyboard_arrow_down),
+                  title: const Text('Next Sentence'),
+                  onTap: () => _runDrawerAction(_flureadium.next),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Speed ${_ttsSpeed.toStringAsFixed(1)}x', style: textTheme.labelLarge),
+                      Slider(
+                        value: _ttsSpeed,
+                        min: 0.5,
+                        max: 2.0,
+                        divisions: 6,
+                        label: '${_ttsSpeed}x',
+                        onChanged: (value) async {
+                          setState(() => _ttsSpeed = value);
+                          if (_ttsEnabled) {
+                            await _flureadium.ttsSetPreferences(TTSPreferences(speed: value));
+                          }
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+              const Divider(height: 1),
+              const _DrawerSectionLabel('Audio'),
+              ListTile(
+                leading: Icon(
+                  !_audioEnabled
+                      ? Icons.play_arrow_outlined
+                      : _audioPaused
+                      ? Icons.play_arrow_outlined
+                      : Icons.pause_outlined,
+                ),
+                title: Text(
+                  !_audioEnabled
+                      ? 'Audio Play'
+                      : _audioPaused
+                      ? 'Audio Resume'
+                      : 'Audio Pause',
+                ),
+                onTap: () => _runDrawerAction(_toggleAudio),
+              ),
+              if (_audioEnabled)
+                ListTile(
+                  leading: const Icon(Icons.forward_30_outlined),
+                  title: const Text('+30s'),
+                  onTap: () => _runDrawerAction(_seekForward),
+                ),
+              if (_audioEnabled)
+                ListTile(
+                  leading: const Icon(Icons.skip_previous_outlined),
+                  title: const Text('Audio Prev Chapter'),
+                  onTap: () => _runDrawerAction(_previousChapter),
+                ),
+              if (_audioEnabled)
+                ListTile(
+                  leading: const Icon(Icons.skip_next_outlined),
+                  title: const Text('Audio Next Chapter'),
+                  onTap: () => _runDrawerAction(_nextChapter),
+                ),
+              const SizedBox(height: 24),
+            ],
+            ),
+          ),
+        ),
+      ),
       body: Stack(
         children: [
+          // Always mounted so integration/widget tests can read status Keys
+          // before the drawer has been opened (Scaffold builds it lazily).
+          // Avoid Offstage: find.byKey skips offstage widgets by default.
+          Opacity(
+            opacity: 0,
+            child: IgnorePointer(
+              child: Column(children: _debugStatusLines(keyed: true)),
+            ),
+          ),
           if (pub != null)
             ReadiumReaderWidget(
               publication: pub,
-              onTap: () => setState(() => _controlsVisible = !_controlsVisible),
+              onTap: () {
+                final scaffold = _scaffoldKey.currentState;
+                if (scaffold?.isDrawerOpen ?? false) {
+                  scaffold?.closeDrawer();
+                  setState(() => _controlsVisible = false);
+                } else {
+                  setState(() => _controlsVisible = !_controlsVisible);
+                  if (_controlsVisible) {
+                    scaffold?.openDrawer();
+                  }
+                }
+              },
               onReady: _subscribeToChannels,
             )
           else
             const Center(child: CircularProgressIndicator()),
-          if (pub == null || _controlsVisible)
-            Positioned(
-              bottom: 0,
-              left: 0,
-              right: 0,
-              child: Container(
-                color: Colors.black54,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (_timebasedState case final s?)
-                      Text(
-                        '${_fmtDuration(s.currentOffset)} / ${_fmtDuration(s.currentDuration)}',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 11,
-                        ),
-                      ),
-                    Text(
-                      key: const Key('open-generation'),
-                      'open-generation: $_openGeneration',
-                      style: const TextStyle(
-                        color: Colors.white70,
-                        fontSize: 10,
-                      ),
-                    ),
-                    Text(
-                      key: const Key('current-track'),
-                      'track: ${_timebasedState?.currentLocator?.locations?.position ?? '-'} '
-                      '${_timebasedState?.currentLocator?.href ?? ''}',
-                      style: const TextStyle(
-                        color: Colors.white70,
-                        fontSize: 10,
-                      ),
-                    ),
-                    Text(
-                      key: const Key('timebased-state'),
-                      'state: ${_timebasedState?.state.name ?? '-'}',
-                      style: const TextStyle(
-                        color: Colors.white70,
-                        fontSize: 10,
-                      ),
-                    ),
-                    Text(
-                      key: const Key('timebased-position'),
-                      'pos: ${_timebasedState?.currentOffset?.inMilliseconds ?? -1} '
-                      'dur: ${_timebasedState?.currentDuration?.inMilliseconds ?? -1}',
-                      style: const TextStyle(
-                        color: Colors.white70,
-                        fontSize: 10,
-                      ),
-                    ),
-                    Text(
-                      key: const Key('ended-seen'),
-                      'ended-seen: $_endedSeen',
-                      style: const TextStyle(
-                        color: Colors.white70,
-                        fontSize: 10,
-                      ),
-                    ),
-                    Text(
-                      key: const Key('audio-error'),
-                      'audio-error: $_lastAudioError',
-                      style: const TextStyle(
-                        color: Colors.white70,
-                        fontSize: 10,
-                      ),
-                    ),
-                    Text(
-                      key: const Key('cancelled-stream-disconnect-seen'),
-                      'cancelled-stream-disconnect-seen: $_cancelledStreamDisconnectSeen',
-                      style: const TextStyle(
-                        color: Colors.white70,
-                        fontSize: 10,
-                      ),
-                    ),
-                    Text(
-                      key: const Key('locator_href'),
-                      _locator?.href ?? '',
-                      style: const TextStyle(
-                        color: Colors.white70,
-                        fontSize: 10,
-                      ),
-                    ),
-                    Wrap(
-                      children: [
-                        TextButton(
-                          onPressed: _openEpub,
-                          child: const Text('Open EPUB'),
-                        ),
-                        TextButton(
-                          onPressed: _openHierarchical,
-                          child: const Text('Open Hierarchical'),
-                        ),
-                        TextButton(
-                          onPressed: _openAudiobook,
-                          child: const Text('Open AudioBook'),
-                        ),
-                        TextButton(
-                          onPressed: _openAudiobookUntitledChapter,
-                          child: const Text('Open AudioBook NoTitle'),
-                        ),
-                        TextButton(
-                          onPressed: _openUnreachableAudiobook,
-                          child: const Text('Open AudioBook BadUrl'),
-                        ),
-                        TextButton(
-                          onPressed: _openMidStreamFailAudiobook,
-                          child: const Text('Open AudioBook BadStream'),
-                        ),
-                        TextButton(
-                          onPressed: _openStreamedAudiobook,
-                          child: const Text('Open AudioBook Streamed'),
-                        ),
-                        TextButton(
-                          onPressed: _openCbz,
-                          child: const Text('Open CBZ'),
-                        ),
-                        TextButton(
-                          onPressed: _openDivina,
-                          child: const Text('Open DIVINA'),
-                        ),
-                        TextButton(
-                          onPressed: _openWebPub,
-                          child: const Text('Open WebPub'),
-                        ),
-                        TextButton(
-                          onPressed: _loadOnly,
-                          child: const Text('Load Only'),
-                        ),
-                        TextButton(
-                          onPressed: _close,
-                          child: const Text('Close'),
-                        ),
-                        TextButton(
-                          onPressed: _flureadium.goLeft,
-                          child: const Text('←'),
-                        ),
-                        TextButton(
-                          onPressed: _flureadium.goRight,
-                          child: const Text('→'),
-                        ),
-                        TextButton(
-                          onPressed: _flureadium.skipToPrevious,
-                          child: const Text('Skip Prev'),
-                        ),
-                        TextButton(
-                          onPressed: _flureadium.skipToNext,
-                          child: const Text('Skip Next'),
-                        ),
-                        TextButton(
-                          onPressed: _dartSkipToPrevious,
-                          child: const Text('DartSkip-'),
-                        ),
-                        TextButton(
-                          onPressed: _dartSkipToNext,
-                          child: const Text('DartSkip+'),
-                        ),
-                        if (pub != null)
-                          TextButton(
-                            onPressed: _goToSaved,
-                            child: const Text('Go To Saved'),
-                          ),
-                        if (pub != null)
-                          TextButton(
-                            onPressed: _goToFirstChapter,
-                            child: const Text('Ch.1'),
-                          ),
-                        TextButton(
-                          onPressed: _setNightPreferences,
-                          child: const Text('Night'),
-                        ),
-                        TextButton(
-                          onPressed: _cycleLineHeight,
-                          child: Text(
-                            'Line Height '
-                            '${_lineHeightPresets[_lineHeightIndex]}',
-                          ),
-                        ),
-                        TextButton(
-                          onPressed: _addHighlight,
-                          child: const Text('Highlight'),
-                        ),
-                        TextButton(
-                          onPressed: _showSystemVoices,
-                          child: const Text('OS TTS'),
-                        ),
-                        TextButton(
-                          onPressed: _toggleTts,
-                          child: Text(_ttsEnabled ? 'TTS Off' : 'TTS On'),
-                        ),
-                        if (_ttsEnabled && _ttsPlaybackState != null)
-                          Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 8),
-                            child: Text(
-                              'TTS: ${_ttsPlaybackState!.name}',
-                              style: const TextStyle(color: Colors.white),
-                            ),
-                          ),
-                        if (_ttsEnabled &&
-                            _ttsPlaybackState == TimebasedState.playing)
-                          TextButton(
-                            onPressed: _ttsPause,
-                            child: const Text('Pause TTS'),
-                          ),
-                        if (_ttsEnabled &&
-                            _ttsPlaybackState == TimebasedState.paused)
-                          TextButton(
-                            onPressed: _ttsResume,
-                            child: const Text('Resume TTS'),
-                          ),
-                        if (_ttsErrorType == TtsErrorType.languageMissingData)
-                          TextButton(
-                            onPressed: _installVoice,
-                            child: const Text('Install Voice'),
-                          ),
-                        if (_ttsEnabled && _voices.isNotEmpty)
-                          TextButton(
-                            onPressed: _nextVoice,
-                            child: Text(
-                              'Voice ${_voiceIndex + 1}/${_voices.length}',
-                            ),
-                          ),
-                        if (_ttsEnabled) ...[
-                          TextButton(
-                            onPressed: _flureadium.previous,
-                            child: const Text('Prev Sentence'),
-                          ),
-                          TextButton(
-                            onPressed: _flureadium.next,
-                            child: const Text('Next Sentence'),
-                          ),
-                        ],
-                        if (_ttsEnabled)
-                          SizedBox(
-                            width: 200,
-                            child: Slider(
-                              value: _ttsSpeed,
-                              min: 0.5,
-                              max: 2.0,
-                              divisions: 6,
-                              label: '${_ttsSpeed}x',
-                              onChanged: (value) async {
-                                setState(() => _ttsSpeed = value);
-                                if (_ttsEnabled) {
-                                  await _flureadium.ttsSetPreferences(
-                                    TTSPreferences(speed: value),
-                                  );
-                                }
-                              },
-                            ),
-                          ),
-                        TextButton(
-                          onPressed: _toggleAudio,
-                          child: Text(
-                            !_audioEnabled
-                                ? 'Audio Play'
-                                : _audioPaused
-                                ? 'Audio Resume'
-                                : 'Audio Pause',
-                          ),
-                        ),
-                        if (_audioEnabled)
-                          TextButton(
-                            onPressed: _seekForward,
-                            child: const Text('+30s'),
-                          ),
-                        if (_audioEnabled)
-                          TextButton(
-                            onPressed: _previousChapter,
-                            child: const Text('Audio Prev Chapter'),
-                          ),
-                        if (_audioEnabled)
-                          TextButton(
-                            onPressed: _nextChapter,
-                            child: const Text('Audio Next Chapter'),
-                          ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ),
         ],
+      ),
+    );
+  }
+}
+
+/// Section header used inside the example [Drawer].
+class _DrawerSectionLabel extends StatelessWidget {
+  const _DrawerSectionLabel(this.label);
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
+      child: Text(
+        label,
+        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+          color: colorScheme.primary,
+          fontWeight: FontWeight.w600,
+        ),
       ),
     );
   }

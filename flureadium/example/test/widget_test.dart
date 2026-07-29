@@ -116,13 +116,36 @@ void main() {
     expect(find.byType(ReaderPage), findsOneWidget);
   });
 
+  Future<void> tapDrawerAction(WidgetTester tester, String label) async {
+    final scaffold = tester.state<ScaffoldState>(find.byType(Scaffold).first);
+    // Force a clean open — drawer position can be stale after runAsync pumps.
+    if (scaffold.isDrawerOpen) {
+      scaffold.closeDrawer();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+    }
+    scaffold.openDrawer();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+
+    final tile = find.widgetWithText(ListTile, label);
+    final scrollable = find.descendant(
+      of: find.byType(Drawer),
+      matching: find.byType(Scrollable),
+    );
+    await tester.scrollUntilVisible(tile, 300, scrollable: scrollable);
+    await tester.pump();
+    await tester.tap(tile);
+  }
+
   testWidgets('tts_can_speak_false_shows_not_supported_snackbar', (
     tester,
   ) async {
     _mockMainChannel(ttsCanSpeak: false);
     await tester.pumpWidget(const ExampleApp());
-    await tester.pump();
-    await tester.tap(find.text('TTS On'));
+    await tester.pump(); // schedule post-frame drawer open
+    await tester.pump(const Duration(milliseconds: 400));
+    await tapDrawerAction(tester, 'TTS On');
     await tester.pump();
     expect(
       find.text('TTS is not supported for this publication'),
@@ -154,8 +177,9 @@ void main() {
     expect(_keyedValue(tester, 'open-generation'), '1');
     expect(_keyedValue(tester, 'ended-seen'), 'false');
 
+    // Drawer animation must run outside runAsync (pumps don't tick there).
+    await tapDrawerAction(tester, 'Open EPUB');
     await tester.runAsync(() async {
-      await tester.tap(find.text('Open EPUB'));
       await _pumpUntilGeneration(tester, '2');
     });
 
@@ -175,8 +199,8 @@ void main() {
     await tester.pump();
     expect(_keyedValue(tester, 'ended-seen'), 'true');
 
+    await tapDrawerAction(tester, 'Open EPUB');
     await tester.runAsync(() async {
-      await tester.tap(find.text('Open EPUB'));
       await _pumpUntilGeneration(tester, '2');
     });
 
@@ -187,7 +211,8 @@ void main() {
     _mockMainChannel(audioEnableThrows: true);
     await tester.pumpWidget(const ExampleApp());
     await tester.pump();
-    await tester.tap(find.text('Audio Play'));
+    await tester.pump(const Duration(milliseconds: 400));
+    await tapDrawerAction(tester, 'Audio Play');
     await tester.pump();
     expect(find.textContaining('Audio playback unavailable'), findsOneWidget);
   });
