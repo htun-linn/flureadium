@@ -81,6 +81,8 @@ EPUBPreferences(
 EPUBPreferences(
   verticalScroll: false,  // Paginated (default)
   pageMargins: 0.1,       // 10% margins
+  columnCount: EPUBColumnCount.one, // Single column (also the unset default)
+  spread: EPUBSpread.never,         // No dual-page FXL spreads
   // ...
 )
 ```
@@ -89,6 +91,17 @@ EPUBPreferences(
 
 - `verticalScroll: false` - Paginated, page-by-page reading
 - `verticalScroll: true` - Continuous vertical scroll
+
+#### Columns and spreads
+
+On wide screens (tablets), Readium used to auto-switch reflowable EPUBs to two columns. Flureadium defaults to **single column** instead. Toggle with:
+
+- `columnCount: EPUBColumnCount.one` — single column (default when unset)
+- `columnCount: EPUBColumnCount.two` — two columns (reflowable, paginated)
+- `columnCount: EPUBColumnCount.auto` — previous viewport-based behaviour
+- `spread: EPUBSpread.never` / `always` / `auto` — fixed-layout dual-page spreads
+
+`columnCount` only applies when `verticalScroll` is `false`.
 
 #### Page Margins
 

@@ -233,6 +233,15 @@ extension EPUBPreferences {
         print("EPUBPreferences", "WARN: Cannot map property: \(key): \(value)")
       }
     }
+
+    // Default to single-column / no-spread when unset so tablets do not
+    // automatically switch to dual-page layout.
+    if columnCount == nil {
+      columnCount = .one
+    }
+    if spread == nil {
+      spread = .never
+    }
   }
 }
 

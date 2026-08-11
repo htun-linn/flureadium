@@ -4,11 +4,13 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
 import org.readium.r2.navigator.epub.EpubPreferences
+import org.readium.r2.navigator.preferences.ColumnCount
+import org.readium.r2.navigator.preferences.Spread
 import org.readium.r2.shared.ExperimentalReadiumApi
 
 /**
- * Unit tests for [epubPreferencesFromMap], focused on the `lineHeight` and
- * `publisherStyles` fields.
+ * Unit tests for [epubPreferencesFromMap], focused on typography and layout
+ * fields (`lineHeight`, `publisherStyles`, `columnCount`, `spread`).
  */
 @OptIn(ExperimentalReadiumApi::class)
 internal class FlutterEpubPreferencesTest {
@@ -80,5 +82,61 @@ internal class FlutterEpubPreferencesTest {
         assertNull(prefs.fontFamily)
         assertEquals(1.5, prefs.lineHeight)
         assertEquals(false, prefs.publisherStyles)
+    }
+
+    @Test
+    fun fromMap_parsesColumnCountAndSpread() {
+        val map = mapOf(
+            "columnCount" to "2",
+            "spread" to "always",
+        )
+
+        val prefs = epubPreferencesFromMap(map, defaults = null)
+
+        assertEquals(ColumnCount.TWO, prefs.columnCount)
+        assertEquals(Spread.ALWAYS, prefs.spread)
+    }
+
+    @Test
+    fun fromMap_defaultsColumnCountToOneAndSpreadToNever() {
+        val prefs = epubPreferencesFromMap(emptyMap(), defaults = null)
+
+        assertEquals(ColumnCount.ONE, prefs.columnCount)
+        assertEquals(Spread.NEVER, prefs.spread)
+    }
+
+    @Test
+    fun fromMap_columnCountAndSpreadFallBackToDefaults() {
+        val defaults = EpubPreferences(
+            columnCount = ColumnCount.TWO,
+            spread = Spread.ALWAYS,
+        )
+
+        val prefs = epubPreferencesFromMap(emptyMap(), defaults = defaults)
+
+        assertEquals(ColumnCount.TWO, prefs.columnCount)
+        assertEquals(Spread.ALWAYS, prefs.spread)
+    }
+
+    @Test
+    fun fromMap_parsesAutoColumnCountAndSpread() {
+        val map = mapOf(
+            "columnCount" to "auto",
+            "spread" to "auto",
+        )
+
+        val prefs = epubPreferencesFromMap(map, defaults = null)
+
+        assertEquals(ColumnCount.AUTO, prefs.columnCount)
+        assertEquals(Spread.AUTO, prefs.spread)
+    }
+
+    @Test
+    fun fromMap_invalidColumnCountFallsBackToDefaultOne() {
+        val map = mapOf("columnCount" to "three")
+
+        val prefs = epubPreferencesFromMap(map, defaults = null)
+
+        assertEquals(ColumnCount.ONE, prefs.columnCount)
     }
 }

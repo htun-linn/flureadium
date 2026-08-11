@@ -21,6 +21,8 @@ EPUBPreferences({
   double? pageMargins,
   double? lineHeight,
   bool? publisherStyles,
+  EPUBColumnCount? columnCount,
+  EPUBSpread? spread,
 })
 ```
 
@@ -140,6 +142,36 @@ publisherStyles: false  // Required to enable lineHeight and other advanced over
 
 > **Note:** If you set `lineHeight` but leave `publisherStyles` at its default, most EPUBs will appear unchanged because the publisher's stylesheet takes precedence. Set `publisherStyles: false` whenever you set `lineHeight`.
 
+#### columnCount
+
+**Type:** `EPUBColumnCount?`
+
+Number of text columns for **reflowable** EPUB pagination (`verticalScroll: false`). Ignored in scroll mode and for fixed-layout publications (use [`spread`](#spread) for those).
+
+When `null`, `toJson()` emits single-column (`"1"`) so tablets do **not** automatically switch to two columns.
+
+```dart
+columnCount: EPUBColumnCount.one   // Single column (default when unset)
+columnCount: EPUBColumnCount.two   // Two columns
+columnCount: EPUBColumnCount.auto  // Readium viewport-based (often 2 on tablets)
+```
+
+#### spread
+
+**Type:** `EPUBSpread?`
+
+Synthetic dual-page spreads for **fixed-layout** EPUB pagination. For reflowable EPUBs, prefer [`columnCount`](#columncount).
+
+When `null`, `toJson()` emits `never` so wide screens stay on a single page.
+
+```dart
+spread: EPUBSpread.never   // Single page (default when unset)
+spread: EPUBSpread.always  // Always two pages side-by-side
+spread: EPUBSpread.auto    // Spread when the viewport is wide enough
+```
+
+> **Tip:** For a single “dual page” toggle that works for both reflowable and fixed-layout books, set both: single → `columnCount: one` + `spread: never`; dual → `columnCount: two` + `spread: always` (or `auto`).
+
 ### Methods
 
 #### toJson
@@ -176,6 +208,17 @@ final publisherFontsPrefs = EPUBPreferences(
   textColor: Color(0xFF000000),
   lineHeight: 1.5,
   publisherStyles: false,
+);
+
+// Dual-column layout on tablets (opt in — default is single column)
+final dualColumnPrefs = EPUBPreferences(
+  fontSize: 100,
+  fontWeight: null,
+  verticalScroll: false,
+  backgroundColor: Color(0xFFFFFFFF),
+  textColor: Color(0xFF000000),
+  columnCount: EPUBColumnCount.two,
+  spread: EPUBSpread.always,
 );
 
 // Sepia mode

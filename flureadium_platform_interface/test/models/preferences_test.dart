@@ -68,6 +68,34 @@ void main() {
         expect(prefs.publisherStyles, isNull);
       });
 
+      test('creates instance with optional columnCount and spread', () {
+        final prefs = EPUBPreferences(
+          fontSize: 100,
+          fontWeight: null,
+          verticalScroll: false,
+          backgroundColor: null,
+          textColor: null,
+          columnCount: EPUBColumnCount.two,
+          spread: EPUBSpread.always,
+        );
+
+        expect(prefs.columnCount, equals(EPUBColumnCount.two));
+        expect(prefs.spread, equals(EPUBSpread.always));
+      });
+
+      test('columnCount and spread default to null', () {
+        final prefs = EPUBPreferences(
+          fontSize: 100,
+          fontWeight: null,
+          verticalScroll: false,
+          backgroundColor: null,
+          textColor: null,
+        );
+
+        expect(prefs.columnCount, isNull);
+        expect(prefs.spread, isNull);
+      });
+
       test('fontFamily defaults to null when omitted', () {
         final prefs = EPUBPreferences(
           fontSize: 100,
@@ -167,6 +195,55 @@ void main() {
         expect(json.containsKey('fontFamily'), isFalse);
         expect(json['lineHeight'], equals('1.5'));
         expect(json['publisherStyles'], equals('false'));
+      });
+
+      test('defaults columnCount to one and spread to never in toJson', () {
+        final prefs = EPUBPreferences(
+          fontSize: 100,
+          fontWeight: null,
+          verticalScroll: false,
+          backgroundColor: null,
+          textColor: null,
+        );
+
+        final json = prefs.toJson();
+
+        expect(json['columnCount'], equals('1'));
+        expect(json['spread'], equals('never'));
+      });
+
+      test('serializes explicit columnCount and spread wire values', () {
+        final prefs = EPUBPreferences(
+          fontSize: 100,
+          fontWeight: null,
+          verticalScroll: false,
+          backgroundColor: null,
+          textColor: null,
+          columnCount: EPUBColumnCount.two,
+          spread: EPUBSpread.always,
+        );
+
+        final json = prefs.toJson();
+
+        expect(json['columnCount'], equals('2'));
+        expect(json['spread'], equals('always'));
+      });
+
+      test('serializes auto columnCount and spread', () {
+        final prefs = EPUBPreferences(
+          fontSize: 100,
+          fontWeight: null,
+          verticalScroll: false,
+          backgroundColor: null,
+          textColor: null,
+          columnCount: EPUBColumnCount.auto,
+          spread: EPUBSpread.auto,
+        );
+
+        final json = prefs.toJson();
+
+        expect(json['columnCount'], equals('auto'));
+        expect(json['spread'], equals('auto'));
       });
 
       test('converts fontSize to percentage string', () {
@@ -651,6 +728,40 @@ void main() {
           PDFPageLayout.automatic,
         ]),
       );
+    });
+  });
+
+  group('EPUBColumnCount', () {
+    test('has correct enum values and wire values', () {
+      expect(
+        EPUBColumnCount.values,
+        containsAll([
+          EPUBColumnCount.auto,
+          EPUBColumnCount.one,
+          EPUBColumnCount.two,
+        ]),
+      );
+      expect(EPUBColumnCount.auto.wireValue, equals('auto'));
+      expect(EPUBColumnCount.one.wireValue, equals('1'));
+      expect(EPUBColumnCount.two.wireValue, equals('2'));
+      expect(EPUBColumnCount.fromWireValue('1'), equals(EPUBColumnCount.one));
+      expect(EPUBColumnCount.fromWireValue('nope'), isNull);
+    });
+  });
+
+  group('EPUBSpread', () {
+    test('has correct enum values and wire values', () {
+      expect(
+        EPUBSpread.values,
+        containsAll([
+          EPUBSpread.auto,
+          EPUBSpread.never,
+          EPUBSpread.always,
+        ]),
+      );
+      expect(EPUBSpread.never.wireValue, equals('never'));
+      expect(EPUBSpread.fromWireValue('always'), equals(EPUBSpread.always));
+      expect(EPUBSpread.fromWireValue('nope'), isNull);
     });
   });
 }

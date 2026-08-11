@@ -26,7 +26,7 @@ The app auto-opens `moby_dick.epub` on launch. A control panel at the bottom let
 
 Example actions live in the navigation drawer, grouped as **Publications**, **Navigation**, **EPUB Preferences**, **Annotations**, **Text-to-speech**, and **Audio**.
 
-Tap **Prefs Demo** (drawer → **EPUB Preferences**) for a Material 3 reader with a draggable settings sheet. It loads an online sample EPUB (default: IDPF [Accessible EPUB 3](https://github.com/IDPF/epub3-samples); also Moby Dick WebPub and Les Diaboliques) and lets you live-tune `lineHeight`, `publisherStyles`, and optional `fontFamily` (publisher fonts vs custom override).
+Tap **Prefs Demo** (drawer → **EPUB Preferences**) for a Material 3 reader with a draggable settings sheet. It loads an online sample EPUB (default: IDPF [Accessible EPUB 3](https://github.com/IDPF/epub3-samples); also Moby Dick WebPub and Les Diaboliques) and lets you live-tune `columnCount` / `spread` (single vs multi column), `lineHeight`, `publisherStyles`, and optional `fontFamily` (publisher fonts vs custom override).
 
 ## Running the Example
 

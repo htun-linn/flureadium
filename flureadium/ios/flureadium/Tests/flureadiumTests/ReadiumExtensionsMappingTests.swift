@@ -74,7 +74,7 @@ final class ReadiumExtensionsMappingTests: XCTestCase {
     func testEPUBPreferencesFromMapEmptyMapProducesDefaultPrefs() {
         let map: [String: String] = [:]
         let prefs = EPUBPreferences(fromMap: map)
-        // All optional fields should remain nil when map is empty
+        // Most optional fields remain nil when map is empty…
         XCTAssertNil(prefs.backgroundColor)
         XCTAssertNil(prefs.textColor)
         XCTAssertNil(prefs.fontSize)
@@ -82,6 +82,29 @@ final class ReadiumExtensionsMappingTests: XCTestCase {
         XCTAssertNil(prefs.lineHeight)
         XCTAssertNil(prefs.publisherStyles)
         XCTAssertNil(prefs.fontFamily)
+        // …except column/spread, which default to single-page layout.
+        XCTAssertEqual(prefs.columnCount, .one)
+        XCTAssertEqual(prefs.spread, .never)
+    }
+
+    func testEPUBPreferencesFromMapMapsColumnCountAndSpread() {
+        let map: [String: String] = [
+            "columnCount": "2",
+            "spread": "always",
+        ]
+        let prefs = EPUBPreferences(fromMap: map)
+        XCTAssertEqual(prefs.columnCount, .two)
+        XCTAssertEqual(prefs.spread, .always)
+    }
+
+    func testEPUBPreferencesFromMapMapsAutoColumnCountAndSpread() {
+        let map: [String: String] = [
+            "columnCount": "auto",
+            "spread": "auto",
+        ]
+        let prefs = EPUBPreferences(fromMap: map)
+        XCTAssertEqual(prefs.columnCount, .auto)
+        XCTAssertEqual(prefs.spread, .auto)
     }
 
     func testEPUBPreferencesFromMapOmitsFontFamilyKeepsPublisherFonts() {

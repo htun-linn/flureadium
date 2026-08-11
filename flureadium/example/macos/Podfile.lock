@@ -1,5 +1,5 @@
 PODS:
-  - flutter_readium (0.0.1):
+  - flureadium (0.0.1):
     - FlutterMacOS
   - FlutterMacOS (1.0.0)
   - package_info_plus (0.0.1):
@@ -8,14 +8,14 @@ PODS:
     - FlutterMacOS
 
 DEPENDENCIES:
-  - flutter_readium (from `Flutter/ephemeral/.symlinks/plugins/flutter_readium/macos`)
+  - flureadium (from `Flutter/ephemeral/.symlinks/plugins/flureadium/macos`)
   - FlutterMacOS (from `Flutter/ephemeral`)
   - package_info_plus (from `Flutter/ephemeral/.symlinks/plugins/package_info_plus/macos`)
   - wakelock_plus (from `Flutter/ephemeral/.symlinks/plugins/wakelock_plus/macos`)
 
 EXTERNAL SOURCES:
-  flutter_readium:
-    :path: Flutter/ephemeral/.symlinks/plugins/flutter_readium/macos
+  flureadium:
+    :path: Flutter/ephemeral/.symlinks/plugins/flureadium/macos
   FlutterMacOS:
     :path: Flutter/ephemeral
   package_info_plus:
@@ -24,7 +24,7 @@ EXTERNAL SOURCES:
     :path: Flutter/ephemeral/.symlinks/plugins/wakelock_plus/macos
 
 SPEC CHECKSUMS:
-  flutter_readium: d4f556cf61e7850f202a4f32c60acc2051a08f96
+  flureadium: 7be8ec364d377818295ddfe4c70b7022a9150352
   FlutterMacOS: d0db08ddef1a9af05a5ec4b724367152bb0500b1
   package_info_plus: f0052d280d17aa382b932f399edf32507174e870
   wakelock_plus: 917609be14d812ddd9e9528876538b2263aaa03b

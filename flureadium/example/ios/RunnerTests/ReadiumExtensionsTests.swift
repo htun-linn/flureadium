@@ -251,6 +251,30 @@ final class EPUBPreferencesExtensionTests: XCTestCase {
         XCTAssertEqual(prefs.publisherStyles, false)
     }
 
+    func testFromMapColumnCountAndSpread() {
+        let prefs = EPUBPreferences(fromMap: [
+            "columnCount": "2",
+            "spread": "always",
+        ])
+        XCTAssertEqual(prefs.columnCount, .two)
+        XCTAssertEqual(prefs.spread, .always)
+    }
+
+    func testFromMapDefaultsColumnCountToOneAndSpreadToNever() {
+        let prefs = EPUBPreferences(fromMap: [:])
+        XCTAssertEqual(prefs.columnCount, .one)
+        XCTAssertEqual(prefs.spread, .never)
+    }
+
+    func testFromMapAutoColumnCountAndSpread() {
+        let prefs = EPUBPreferences(fromMap: [
+            "columnCount": "auto",
+            "spread": "auto",
+        ])
+        XCTAssertEqual(prefs.columnCount, .auto)
+        XCTAssertEqual(prefs.spread, .auto)
+    }
+
     func testFromMapPageMargins() {
         let prefs = EPUBPreferences(fromMap: ["pageMargins": "2.0"])
         XCTAssertEqual(prefs.pageMargins, 2.0)

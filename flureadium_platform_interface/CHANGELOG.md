@@ -1,3 +1,11 @@
+## 0.10.0
+
+### Added
+
+- **`EPUBPreferences.columnCount` and `EPUBPreferences.spread`**: expose Readium's reflowable column layout (`EPUBColumnCount`: `auto` / `one` / `two`) and fixed-layout spreads (`EPUBSpread`: `auto` / `never` / `always`). When left `null`, `toJson()` emits single-column (`"1"`) and `spread: never` so tablets do not automatically switch to dual-page layout. Set `EPUBColumnCount.auto` / `EPUBSpread.auto` to restore viewport-based behaviour.
+
+---
+
 ## 0.9.0
 
 ### Added

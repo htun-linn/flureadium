@@ -1,3 +1,21 @@
+## 0.16.0
+
+### Added
+
+- **EPUB column / spread layout**: `EPUBPreferences` gains `columnCount` (`EPUBColumnCount?`) and `spread` (`EPUBSpread?`) so apps can toggle single- vs multi-column (reflowable) and single- vs dual-page (fixed-layout) reading.
+  - **Default is single column**: when unset, Dart `toJson()` emits `columnCount: "1"` and `spread: "never"`. Native bridges use the same defaults when the keys are missing, so tablets no longer auto-switch to two columns.
+  - Set `columnCount: EPUBColumnCount.two` (and optionally `spread: EPUBSpread.always`) for dual layout, or `EPUBColumnCount.auto` / `EPUBSpread.auto` for Readium's previous viewport-based behaviour.
+  - **Android** now parses and applies both fields in `epubPreferencesFromMap` / `EpubNavigator.updatePreferences`.
+  - **iOS** already mapped both keys; defaults to `.one` / `.never` when unset.
+  - Depends on `flureadium_platform_interface` `^0.10.0`.
+
+### Testing
+
+- Dart: `columnCount` / `spread` constructor, `toJson` defaults, and wire-value coverage in `preferences_test.dart`.
+- Android JVM: `FlutterEpubPreferencesTest` covers parse, defaults, and `auto` values.
+- iOS: mapping tests for `columnCount` / `spread` in RunnerTests and package tests.
+- Example: Prefs Demo adds a single/multi column toggle.
+
 ## 0.15.0
 
 ### Added

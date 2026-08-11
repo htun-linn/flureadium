@@ -50,9 +50,10 @@ const kPreferencesDemoEpubUrl =
 
 const _kFontChoices = ['Georgia', 'Helvetica', 'Times New Roman', 'Courier'];
 
-/// Dedicated screen that demos EPUB preference features from 0.15.0:
-/// [EPUBPreferences.lineHeight], [EPUBPreferences.publisherStyles], and
-/// optional [EPUBPreferences.fontFamily] (null keeps publisher fonts).
+/// Dedicated screen that demos EPUB preference features:
+/// [EPUBPreferences.lineHeight], [EPUBPreferences.publisherStyles],
+/// optional [EPUBPreferences.fontFamily] (null keeps publisher fonts),
+/// and [EPUBPreferences.columnCount] / [EPUBPreferences.spread] layout.
 class EpubPreferencesDemoPage extends StatefulWidget {
   const EpubPreferencesDemoPage({
     this.epubUrl = kPreferencesDemoEpubUrl,
@@ -78,6 +79,8 @@ class _EpubPreferencesDemoPageState extends State<EpubPreferencesDemoPage> {
   double _lineHeight = 1.5;
   bool _publisherStyles = false;
   bool _usePublisherFonts = true;
+  /// Single column by default; toggle for tablet dual-column layout.
+  bool _multiColumn = false;
   String _customFontFamily = 'Georgia';
   int _fontSize = 100;
 
@@ -143,6 +146,10 @@ class _EpubPreferencesDemoPageState extends State<EpubPreferencesDemoPage> {
         textColor: const Color(0xFF1A1A1A),
         lineHeight: _lineHeight,
         publisherStyles: _publisherStyles,
+        columnCount: _multiColumn
+            ? EPUBColumnCount.two
+            : EPUBColumnCount.one,
+        spread: _multiColumn ? EPUBSpread.always : EPUBSpread.never,
       ),
     );
   }
@@ -385,6 +392,46 @@ class _EpubPreferencesDemoPageState extends State<EpubPreferencesDemoPage> {
               ),
               const SizedBox(height: 8),
               _SectionHeader(
+                icon: Icons.view_column_outlined,
+                title: 'Page layout',
+                subtitle:
+                    'Reflowable columns + fixed-layout spreads (default: single)',
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: SegmentedButton<bool>(
+                  segments: const [
+                    ButtonSegment(
+                      value: false,
+                      icon: Icon(Icons.looks_one_outlined),
+                      label: Text('Single'),
+                    ),
+                    ButtonSegment(
+                      value: true,
+                      icon: Icon(Icons.view_column_outlined),
+                      label: Text('Multi'),
+                    ),
+                  ],
+                  selected: {_multiColumn},
+                  onSelectionChanged: (selection) async {
+                    setState(() => _multiColumn = selection.first);
+                    await _applyPreferences();
+                  },
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(24, 8, 24, 0),
+                child: Text(
+                  _multiColumn
+                      ? 'columnCount: two · spread: always'
+                      : 'columnCount: one · spread: never',
+                  style: textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              _SectionHeader(
                 icon: Icons.format_line_spacing,
                 title: 'Line height',
                 subtitle: _publisherStyles
@@ -548,7 +595,8 @@ class _EpubPreferencesDemoPageState extends State<EpubPreferencesDemoPage> {
   String get _statusLine {
     final font =
         _usePublisherFonts ? 'Publisher fonts' : _customFontFamily;
-    return 'LH ${_lineHeight.toStringAsFixed(1)} · '
+    final columns = _multiColumn ? 'Multi-col' : 'Single-col';
+    return '$columns · LH ${_lineHeight.toStringAsFixed(1)} · '
         '${_publisherStyles ? 'Styles on' : 'Styles off'} · '
         '$font · $_fontSize%';
   }

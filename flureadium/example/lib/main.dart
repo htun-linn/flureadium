@@ -949,7 +949,7 @@ class _ReaderPageState extends State<ReaderPage> {
                 leading: const Icon(Icons.tune_outlined),
                 title: const Text('Prefs Demo'),
                 subtitle: const Text(
-                  'lineHeight, publisherStyles, optional fontFamily',
+                  'lineHeight, columns, publisherStyles, fonts',
                 ),
                 onTap: () => _runDrawerAction(_openPreferencesDemo),
               ),

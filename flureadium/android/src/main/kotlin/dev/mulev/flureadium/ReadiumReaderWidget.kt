@@ -27,6 +27,8 @@ import kotlinx.coroutines.cancelChildren
 import kotlinx.coroutines.launch
 import org.json.JSONObject
 import org.readium.r2.navigator.epub.EpubPreferences
+import org.readium.r2.navigator.preferences.ColumnCount
+import org.readium.r2.navigator.preferences.Spread
 import org.readium.r2.shared.ExperimentalReadiumApi
 import org.readium.r2.shared.publication.Locator
 import org.readium.r2.shared.publication.html.cssSelector
@@ -124,10 +126,11 @@ class ReadiumReaderWidget(
         var initialLocator =
             if (locatorString == null) null else Locator.fromJSON(jsonDecode(locatorString) as JSONObject)
         val initialPreferences =
-            if (initPrefsMap == null) EpubPreferences() else epubPreferencesFromMap(
-                initPrefsMap,
-                null
-            )
+            if (initPrefsMap == null) {
+                EpubPreferences(columnCount = ColumnCount.ONE, spread = Spread.NEVER)
+            } else {
+                epubPreferencesFromMap(initPrefsMap, null)
+            }
         Log.d(TAG, "publication = $publication")
 
         layout = LinearLayout(context, attrs)

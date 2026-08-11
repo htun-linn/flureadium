@@ -214,6 +214,8 @@ class EpubNavigator : BaseNavigator, EpubReaderFragment.Listener {
                 textColor.set(preferences.textColor)
                 publisherStyles.set(preferences.publisherStyles)
                 lineHeight.set(preferences.lineHeight)
+                columnCount.set(preferences.columnCount)
+                spread.set(preferences.spread)
 
                 mainScope.launch {
                     epubNavigator?.updatePreferences(preferences)

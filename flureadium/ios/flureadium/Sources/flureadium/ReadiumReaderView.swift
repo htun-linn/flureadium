@@ -82,7 +82,9 @@ class ReadiumReaderView: NSObject, FlutterPlatformView, EPUBNavigatorDelegate, V
     let publication = getCurrentPublication()!
 
     let preferencesMap = creationParams["preferences"] as? [String: String]
-    let defaultPreferences = preferencesMap.map { EPUBPreferences.init(fromMap: $0) }
+    // Default to single-column when Flutter sends no preferences map.
+    let defaultPreferences = preferencesMap.map { EPUBPreferences(fromMap: $0) }
+      ?? EPUBPreferences(columnCount: .one, spread: .never)
 
     // Navigation config uses defaults; updated via setNavigationConfig channel call
     enableEdgeTapNavigation = true
@@ -117,10 +119,7 @@ class ReadiumReaderView: NSObject, FlutterPlatformView, EPUBNavigatorDelegate, V
     config.debugState = true
     config.decorationTemplates = HTMLDecorationTemplate.defaultTemplates(alpha: 1.0, experimentalPositioning: true)
     config.editingActions = ReadiumReaderView.epubEditingActions
-
-    if (defaultPreferences != nil) {
-      config.preferences = defaultPreferences!
-    }
+    config.preferences = defaultPreferences
 
     readiumViewController = try! EPUBNavigatorViewController(
       publication: publication,
@@ -140,7 +139,7 @@ class ReadiumReaderView: NSObject, FlutterPlatformView, EPUBNavigatorDelegate, V
     readiumViewController.delegate = self
 
     // Set initial scroll mode from preferences and configure edge tap handlers accordingly
-    isVerticalScroll = defaultPreferences?.scroll ?? false
+    isVerticalScroll = defaultPreferences.scroll ?? false
     configureEdgeTapHandlers(isScrollMode: isVerticalScroll)
 
     let child: UIView = readiumViewController.view

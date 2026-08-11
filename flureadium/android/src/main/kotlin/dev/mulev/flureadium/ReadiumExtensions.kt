@@ -8,7 +8,9 @@ import dev.mulev.flureadium.models.FlutterMediaOverlay
 import org.json.JSONObject
 import org.readium.r2.navigator.Decoration
 import org.readium.r2.navigator.epub.EpubPreferences
+import org.readium.r2.navigator.preferences.ColumnCount
 import org.readium.r2.navigator.preferences.FontFamily
+import org.readium.r2.navigator.preferences.Spread
 import org.readium.r2.shared.ExperimentalReadiumApi
 import org.readium.r2.shared.InternalReadiumApi
 import org.readium.r2.shared.publication.Href
@@ -83,12 +85,34 @@ fun epubPreferencesFromMap(
             pageMargins = prefMap["pageMargins"]?.toDoubleOrNull() ?: defaults?.pageMargins,
             lineHeight = prefMap["lineHeight"]?.toDoubleOrNull() ?: defaults?.lineHeight,
             publisherStyles = prefMap["publisherStyles"]?.toBoolean() ?: defaults?.publisherStyles,
+            // Default to single-column / no-spread when unset so tablets do not
+            // automatically switch to dual-page layout.
+            columnCount = prefMap["columnCount"]?.let { columnCountFromWire(it) }
+                ?: defaults?.columnCount
+                ?: ColumnCount.ONE,
+            spread = prefMap["spread"]?.let { spreadFromWire(it) }
+                ?: defaults?.spread
+                ?: Spread.NEVER,
         )
         return newPreferences
     } catch (ex: Exception) {
         Log.e("ReadiumExtensions", "Error mapping JSONObject to EpubPreferences: $ex")
-        return EpubPreferences()
+        return EpubPreferences(columnCount = ColumnCount.ONE, spread = Spread.NEVER)
     }
+}
+
+private fun columnCountFromWire(value: String): ColumnCount? = when (value) {
+    "auto" -> ColumnCount.AUTO
+    "1" -> ColumnCount.ONE
+    "2" -> ColumnCount.TWO
+    else -> null
+}
+
+private fun spreadFromWire(value: String): Spread? = when (value) {
+    "auto" -> Spread.AUTO
+    "never" -> Spread.NEVER
+    "always" -> Spread.ALWAYS
+    else -> null
 }
 
 private const val READIUM_FLUTTER_PATH_PREFIX =
