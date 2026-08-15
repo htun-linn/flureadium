@@ -1,3 +1,9 @@
+## 0.16.1
+
+### Bug Fixes
+
+- **Android EPUB restore**: `goToLocator` no longer skips `scrollToLocations()` just because chapter `progression` is within 1%. That threshold is kept only for **progression-only** locators (to avoid JS bounding-rect jitter). If the locator has `cssSelector` or `domRange`, restore always scrolls to that element, then re-anchors after 250ms so fonts/layout can settle. Late restore jumps larger than 5% of the chapter are still suppressed during the 5s grace period (was 20%).
+
 ## 0.16.0
 
 ### Added

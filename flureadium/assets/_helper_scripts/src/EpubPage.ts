@@ -156,8 +156,8 @@ export class EpubPage {
       const locatorWithFragments = {
         ...locator,
         locations: {
-          cssSelector,
           ...locator.locations,
+          cssSelector: locator.locations?.cssSelector ?? cssSelector,
           fragments: [...(locator.locations?.fragments ?? []), ...fragments],
         },
       };

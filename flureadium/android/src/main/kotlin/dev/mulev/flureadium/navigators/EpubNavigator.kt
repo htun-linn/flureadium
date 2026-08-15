@@ -21,6 +21,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
@@ -303,9 +304,15 @@ class EpubNavigator : BaseNavigator, EpubReaderFragment.Listener {
         pendingScrollToLocations?.let { locations ->
             Log.d(TAG, "::onPageLoaded #$pageLoadCount - executing pendingScrollToLocations: $locations")
 
-            mainScope.async {
-                // Keep follow-up scrolling consistent with explicit goToLocator behavior.
+            mainScope.launch {
                 scrollToLocations(locations, toStart = false)
+                // Fonts/CSS can reflow after the first paint (especially Burmese
+                // webfonts). Re-anchor to cssSelector/domRange once layout settles.
+                if (EpubRestore.hasElementAnchor(locations)) {
+                    delay(EpubRestore.ELEMENT_REANCHOR_DELAY_MS)
+                    Log.d(TAG, "::onPageLoaded - re-anchoring to element locator after layout")
+                    scrollToLocations(locations, toStart = false)
+                }
             }
 
             pendingScrollToLocations = null
@@ -523,26 +530,31 @@ class EpubNavigator : BaseNavigator, EpubReaderFragment.Listener {
             } else if (!shouldScroll) {
                 Log.d(TAG, "::goToLocator: Already at $locatorHref, no scroll data, staying put")
             } else {
-                // Check if we're already at the correct progression to avoid unnecessary scroll
-                // that would recalculate position from bounding rect and introduce drift.
-                // This matches iOS behavior which doesn't re-scroll during restore.
                 val currentProgression = currentLocator?.value?.locations?.progression
                 val targetProgression = locations.progression
+                val hasElementAnchor = EpubRestore.hasElementAnchor(locations)
 
-                if (currentProgression != null && targetProgression != null) {
-                    val progressionDelta = kotlin.math.abs(currentProgression - targetProgression)
-                    if (progressionDelta < 0.01) {  // Within 1% - already positioned correctly
-                        Log.d(TAG, "::goToLocator: Already at $locatorHref with correct progression " +
-                            "(current=$currentProgression, target=$targetProgression, delta=$progressionDelta), " +
-                            "skipping scroll to avoid drift")
-                        return@async
-                    }
+                if (EpubRestore.shouldSkipProgressionScroll(
+                        currentProgression,
+                        targetProgression,
+                        hasElementAnchor,
+                    )
+                ) {
+                    Log.d(TAG, "::goToLocator: Already at $locatorHref with correct progression " +
+                        "(current=$currentProgression, target=$targetProgression), " +
+                        "skipping progression-only scroll to avoid drift")
+                    return@async
                 }
 
                 Log.d(TAG, "::goToLocator: Already at $locatorHref, scroll to position " +
-                    "(current=${currentProgression}, target=${targetProgression})")
+                    "(current=$currentProgression, target=$targetProgression, " +
+                    "elementAnchor=$hasElementAnchor)")
 
                 scrollToLocations(locations, false)
+                if (hasElementAnchor) {
+                    delay(EpubRestore.ELEMENT_REANCHOR_DELAY_MS)
+                    scrollToLocations(locations, false)
+                }
             }
         }.await()
     }

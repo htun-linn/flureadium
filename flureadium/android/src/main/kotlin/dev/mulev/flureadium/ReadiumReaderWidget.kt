@@ -337,7 +337,9 @@ class ReadiumReaderWidget(
                 // If href matches but progression is far off, suppress
                 if (locatorHref == targetHref && targetProgression != null && locatorProgression != null) {
                     val progressionDelta = kotlin.math.abs(locatorProgression - targetProgression)
-                    if (progressionDelta > 0.2) {  // More than 20% difference
+                    // ~5% of the chapter — a real page turn is ~1%; restore
+                    // doubling (e.g. 0.37 → 0.74) is far above this.
+                    if (progressionDelta > 0.05) {
                         Log.w(TAG, "::onVisualCurrentLocationChanged - SUPPRESS late jump during grace period! " +
                             "target=$targetProgression, current=$locatorProgression, delta=$progressionDelta, " +
                             "elapsed=${elapsedSinceSettle}ms")
