@@ -1,3 +1,20 @@
+## 0.17.0
+
+### Added
+
+- **EPUB text alignment**: `EPUBPreferences` gains `textAlign` (`EPUBTextAlign?`) so apps can switch reflowable body text between `left` and `justify` (also `start` / `end` / `center` / `right`).
+  - Requires `publisherStyles: false` — the same gate as `lineHeight`.
+  - When unset, Dart `toJson()` omits the key so Readium keeps its default (often justify).
+  - **Android** now parses and applies `textAlign` in `epubPreferencesFromMap` / `EpubNavigator.updatePreferences`.
+  - **iOS** already mapped the `textAlign` key; it is now reachable from Dart.
+  - Depends on `flureadium_platform_interface` `^0.11.0`.
+
+### Testing
+
+- Dart: constructor / `toJson` coverage for `textAlign` in `preferences_test.dart`.
+- Android JVM: `FlutterEpubPreferencesTest` covers parse, defaults, and invalid values.
+- iOS: mapping tests for `left` / `justify` in package tests and RunnerTests.
+
 ## 0.16.1
 
 ### Bug Fixes

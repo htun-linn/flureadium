@@ -81,6 +81,7 @@ class _EpubPreferencesDemoPageState extends State<EpubPreferencesDemoPage> {
   bool _usePublisherFonts = true;
   /// Single column by default; toggle for tablet dual-column layout.
   bool _multiColumn = false;
+  bool _leftAlign = false;
   String _customFontFamily = 'Georgia';
   int _fontSize = 100;
 
@@ -150,6 +151,7 @@ class _EpubPreferencesDemoPageState extends State<EpubPreferencesDemoPage> {
             ? EPUBColumnCount.two
             : EPUBColumnCount.one,
         spread: _multiColumn ? EPUBSpread.always : EPUBSpread.never,
+        textAlign: _leftAlign ? EPUBTextAlign.left : EPUBTextAlign.justify,
       ),
     );
   }
@@ -432,6 +434,36 @@ class _EpubPreferencesDemoPageState extends State<EpubPreferencesDemoPage> {
               ),
               const SizedBox(height: 8),
               _SectionHeader(
+                icon: Icons.format_align_left,
+                title: 'Paragraphs',
+                subtitle: _publisherStyles
+                    ? 'Turn off publisher styles below to apply this'
+                    : 'Body text: justify or left',
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: SegmentedButton<bool>(
+                  segments: const [
+                    ButtonSegment(
+                      value: false,
+                      icon: Icon(Icons.format_align_justify),
+                      label: Text('Justify'),
+                    ),
+                    ButtonSegment(
+                      value: true,
+                      icon: Icon(Icons.format_align_left),
+                      label: Text('Left'),
+                    ),
+                  ],
+                  selected: {_leftAlign},
+                  onSelectionChanged: (selection) async {
+                    setState(() => _leftAlign = selection.first);
+                    await _applyPreferences();
+                  },
+                ),
+              ),
+              const SizedBox(height: 8),
+              _SectionHeader(
                 icon: Icons.format_line_spacing,
                 title: 'Line height',
                 subtitle: _publisherStyles
@@ -596,7 +628,8 @@ class _EpubPreferencesDemoPageState extends State<EpubPreferencesDemoPage> {
     final font =
         _usePublisherFonts ? 'Publisher fonts' : _customFontFamily;
     final columns = _multiColumn ? 'Multi-col' : 'Single-col';
-    return '$columns · LH ${_lineHeight.toStringAsFixed(1)} · '
+    final align = _leftAlign ? 'Left' : 'Justify';
+    return '$columns · $align · LH ${_lineHeight.toStringAsFixed(1)} · '
         '${_publisherStyles ? 'Styles on' : 'Styles off'} · '
         '$font · $_fontSize%';
   }

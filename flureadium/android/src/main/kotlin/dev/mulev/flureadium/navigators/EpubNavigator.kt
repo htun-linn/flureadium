@@ -217,6 +217,7 @@ class EpubNavigator : BaseNavigator, EpubReaderFragment.Listener {
                 lineHeight.set(preferences.lineHeight)
                 columnCount.set(preferences.columnCount)
                 spread.set(preferences.spread)
+                textAlign.set(preferences.textAlign)
 
                 mainScope.launch {
                     epubNavigator?.updatePreferences(preferences)

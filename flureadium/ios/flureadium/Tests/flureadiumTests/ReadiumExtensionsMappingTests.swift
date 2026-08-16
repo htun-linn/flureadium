@@ -120,6 +120,27 @@ final class ReadiumExtensionsMappingTests: XCTestCase {
         XCTAssertEqual(prefs.publisherStyles, false)
     }
 
+    func testEPUBPreferencesFromMapMapsTextAlignLeft() {
+        let map: [String: String] = ["textAlign": "left"]
+        let prefs = EPUBPreferences(fromMap: map)
+        XCTAssertEqual(prefs.textAlign, .left)
+    }
+
+    func testEPUBPreferencesFromMapMapsTextAlignJustify() {
+        let map: [String: String] = ["textAlign": "justify"]
+        let prefs = EPUBPreferences(fromMap: map)
+        XCTAssertEqual(prefs.textAlign, .justify)
+    }
+
+    func testEPUBPreferencesFromMapOmitsTextAlignWhenUnset() {
+        let map: [String: String] = [
+            "lineHeight": "1.5",
+            "publisherStyles": "false",
+        ]
+        let prefs = EPUBPreferences(fromMap: map)
+        XCTAssertNil(prefs.textAlign)
+    }
+
     // MARK: - PDFPreferences.init(fromMap:) — Readium key mapping
 
     func testPDFPreferencesFromMapMapsFitWidth() {

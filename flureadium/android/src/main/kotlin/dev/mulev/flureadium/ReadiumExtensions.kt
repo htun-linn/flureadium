@@ -11,6 +11,7 @@ import org.readium.r2.navigator.epub.EpubPreferences
 import org.readium.r2.navigator.preferences.ColumnCount
 import org.readium.r2.navigator.preferences.FontFamily
 import org.readium.r2.navigator.preferences.Spread
+import org.readium.r2.navigator.preferences.TextAlign
 import org.readium.r2.shared.ExperimentalReadiumApi
 import org.readium.r2.shared.InternalReadiumApi
 import org.readium.r2.shared.publication.Href
@@ -93,6 +94,8 @@ fun epubPreferencesFromMap(
             spread = prefMap["spread"]?.let { spreadFromWire(it) }
                 ?: defaults?.spread
                 ?: Spread.NEVER,
+            textAlign = prefMap["textAlign"]?.let { textAlignFromWire(it) }
+                ?: defaults?.textAlign,
         )
         return newPreferences
     } catch (ex: Exception) {
@@ -112,6 +115,16 @@ private fun spreadFromWire(value: String): Spread? = when (value) {
     "auto" -> Spread.AUTO
     "never" -> Spread.NEVER
     "always" -> Spread.ALWAYS
+    else -> null
+}
+
+private fun textAlignFromWire(value: String): TextAlign? = when (value) {
+    "center" -> TextAlign.CENTER
+    "justify" -> TextAlign.JUSTIFY
+    "start" -> TextAlign.START
+    "end" -> TextAlign.END
+    "left" -> TextAlign.LEFT
+    "right" -> TextAlign.RIGHT
     else -> null
 }
 

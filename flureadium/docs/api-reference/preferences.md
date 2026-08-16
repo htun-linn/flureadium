@@ -23,6 +23,7 @@ EPUBPreferences({
   bool? publisherStyles,
   EPUBColumnCount? columnCount,
   EPUBSpread? spread,
+  EPUBTextAlign? textAlign,
 })
 ```
 
@@ -142,6 +143,20 @@ publisherStyles: false  // Required to enable lineHeight and other advanced over
 
 > **Note:** If you set `lineHeight` but leave `publisherStyles` at its default, most EPUBs will appear unchanged because the publisher's stylesheet takes precedence. Set `publisherStyles: false` whenever you set `lineHeight`.
 
+#### textAlign
+
+**Type:** `EPUBTextAlign?`
+
+Paragraph alignment for **reflowable** EPUB body text. Only takes effect when [`publisherStyles`](#publisherstyles) is `false`. Centered headings usually stay centered; this mainly drives `p` / `li` alignment.
+
+When `null`, `toJson()` omits the key and Readium keeps its default (often justify).
+
+```dart
+textAlign: EPUBTextAlign.left     // Ragged right
+textAlign: EPUBTextAlign.justify  // Stretch to both edges
+textAlign: EPUBTextAlign.start    // Locale start edge (LTR = left)
+```
+
 #### columnCount
 
 **Type:** `EPUBColumnCount?`
@@ -208,6 +223,17 @@ final publisherFontsPrefs = EPUBPreferences(
   textColor: Color(0xFF000000),
   lineHeight: 1.5,
   publisherStyles: false,
+);
+
+// Left-align body paragraphs (requires publisherStyles: false)
+final leftAlignPrefs = EPUBPreferences(
+  fontSize: 100,
+  fontWeight: null,
+  verticalScroll: false,
+  backgroundColor: Color(0xFFFFFFFF),
+  textColor: Color(0xFF000000),
+  publisherStyles: false,
+  textAlign: EPUBTextAlign.left,
 );
 
 // Dual-column layout on tablets (opt in — default is single column)

@@ -6,6 +6,7 @@ import kotlin.test.assertNull
 import org.readium.r2.navigator.epub.EpubPreferences
 import org.readium.r2.navigator.preferences.ColumnCount
 import org.readium.r2.navigator.preferences.Spread
+import org.readium.r2.navigator.preferences.TextAlign
 import org.readium.r2.shared.ExperimentalReadiumApi
 
 /**
@@ -138,5 +139,49 @@ internal class FlutterEpubPreferencesTest {
         val prefs = epubPreferencesFromMap(map, defaults = null)
 
         assertEquals(ColumnCount.ONE, prefs.columnCount)
+    }
+
+    @Test
+    fun fromMap_parsesTextAlignLeft() {
+        val map = mapOf("textAlign" to "left")
+
+        val prefs = epubPreferencesFromMap(map, defaults = null)
+
+        assertEquals(TextAlign.LEFT, prefs.textAlign)
+    }
+
+    @Test
+    fun fromMap_parsesTextAlignJustify() {
+        val map = mapOf("textAlign" to "justify")
+
+        val prefs = epubPreferencesFromMap(map, defaults = null)
+
+        assertEquals(TextAlign.JUSTIFY, prefs.textAlign)
+    }
+
+    @Test
+    fun fromMap_missingTextAlignIsNull() {
+        val prefs = epubPreferencesFromMap(emptyMap(), defaults = null)
+
+        assertNull(prefs.textAlign)
+    }
+
+    @Test
+    fun fromMap_textAlignFallsBackToDefaults() {
+        val defaults = EpubPreferences(textAlign = TextAlign.JUSTIFY)
+
+        val prefs = epubPreferencesFromMap(emptyMap(), defaults = defaults)
+
+        assertEquals(TextAlign.JUSTIFY, prefs.textAlign)
+    }
+
+    @Test
+    fun fromMap_invalidTextAlignFallsBackToDefault() {
+        val defaults = EpubPreferences(textAlign = TextAlign.LEFT)
+        val map = mapOf("textAlign" to "not-an-align")
+
+        val prefs = epubPreferencesFromMap(map, defaults = defaults)
+
+        assertEquals(TextAlign.LEFT, prefs.textAlign)
     }
 }

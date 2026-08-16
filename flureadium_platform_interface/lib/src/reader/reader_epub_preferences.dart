@@ -56,6 +56,33 @@ enum EPUBSpread {
       };
 }
 
+/// Body text alignment for **reflowable** EPUBs.
+///
+/// Only takes effect when [EPUBPreferences.publisherStyles] is `false`.
+/// Headings that the publication centers usually stay centered; this mainly
+/// drives paragraph / list alignment (justify vs left).
+enum EPUBTextAlign {
+  start,
+  left,
+  right,
+  justify,
+  center,
+  end;
+
+  /// Wire value sent to native Readium (`"left"` / `"justify"` / …).
+  String get wireValue => name;
+
+  static EPUBTextAlign? fromWireValue(String value) => switch (value) {
+        'start' => EPUBTextAlign.start,
+        'left' => EPUBTextAlign.left,
+        'right' => EPUBTextAlign.right,
+        'justify' => EPUBTextAlign.justify,
+        'center' => EPUBTextAlign.center,
+        'end' => EPUBTextAlign.end,
+        _ => null,
+      };
+}
+
 class EPUBPreferences {
   EPUBPreferences({
     this.fontFamily,
@@ -69,6 +96,7 @@ class EPUBPreferences {
     this.publisherStyles,
     this.columnCount,
     this.spread,
+    this.textAlign,
   });
 
   factory EPUBPreferences.fromJsonMap(final Map<String, dynamic> map) =>
@@ -84,6 +112,9 @@ class EPUBPreferences {
             : null,
         spread: map['spread'] is String
             ? EPUBSpread.fromWireValue(map['spread'] as String)
+            : null,
+        textAlign: map['textAlign'] is String
+            ? EPUBTextAlign.fromWireValue(map['textAlign'] as String)
             : null,
       );
 
@@ -124,6 +155,12 @@ class EPUBPreferences {
   /// single page. Set [EPUBSpread.auto] or [EPUBSpread.always] for dual-page.
   EPUBSpread? spread;
 
+  /// Paragraph alignment for reflowable EPUBs (`left`, `justify`, …).
+  ///
+  /// When `null`, [toJson] omits the key and Readium keeps its default
+  /// (often justify). Requires [publisherStyles] `false` to apply.
+  EPUBTextAlign? textAlign;
+
   // TODO: Add more preferences,
   //see https://github.com/readium/swift-toolkit/blob/develop/Sources/Navigator/EPUB/Preferences/EPUBPreferences.swift
 
@@ -149,6 +186,9 @@ class EPUBPreferences {
     }
     if (publisherStyles != null) {
       map['publisherStyles'] = publisherStyles.toString();
+    }
+    if (textAlign != null) {
+      map['textAlign'] = textAlign!.wireValue;
     }
     return map;
   }

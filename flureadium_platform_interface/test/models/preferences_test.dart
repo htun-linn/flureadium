@@ -96,6 +96,32 @@ void main() {
         expect(prefs.spread, isNull);
       });
 
+      test('creates instance with optional textAlign', () {
+        final prefs = EPUBPreferences(
+          fontSize: 100,
+          fontWeight: null,
+          verticalScroll: false,
+          backgroundColor: null,
+          textColor: null,
+          publisherStyles: false,
+          textAlign: EPUBTextAlign.left,
+        );
+
+        expect(prefs.textAlign, equals(EPUBTextAlign.left));
+      });
+
+      test('textAlign defaults to null', () {
+        final prefs = EPUBPreferences(
+          fontSize: 100,
+          fontWeight: null,
+          verticalScroll: false,
+          backgroundColor: null,
+          textColor: null,
+        );
+
+        expect(prefs.textAlign, isNull);
+      });
+
       test('fontFamily defaults to null when omitted', () {
         final prefs = EPUBPreferences(
           fontSize: 100,
@@ -246,6 +272,36 @@ void main() {
         expect(json['spread'], equals('auto'));
       });
 
+      test('serializes textAlign when set', () {
+        final prefs = EPUBPreferences(
+          fontSize: 100,
+          fontWeight: null,
+          verticalScroll: false,
+          backgroundColor: null,
+          textColor: null,
+          publisherStyles: false,
+          textAlign: EPUBTextAlign.left,
+        );
+
+        final json = prefs.toJson();
+
+        expect(json['textAlign'], equals('left'));
+      });
+
+      test('omits textAlign when unset', () {
+        final prefs = EPUBPreferences(
+          fontSize: 100,
+          fontWeight: null,
+          verticalScroll: false,
+          backgroundColor: null,
+          textColor: null,
+        );
+
+        final json = prefs.toJson();
+
+        expect(json.containsKey('textAlign'), isFalse);
+      });
+
       test('converts fontSize to percentage string', () {
         final prefs = EPUBPreferences(
           fontFamily: 'Arial',
@@ -283,7 +339,8 @@ void main() {
           ..verticalScroll = true
           ..pageMargins = 25.0
           ..lineHeight = 1.8
-          ..publisherStyles = false;
+          ..publisherStyles = false
+          ..textAlign = EPUBTextAlign.justify;
 
         expect(prefs.fontFamily, equals('Georgia'));
         expect(prefs.fontSize, equals(150));
@@ -291,6 +348,7 @@ void main() {
         expect(prefs.pageMargins, equals(25.0));
         expect(prefs.lineHeight, equals(1.8));
         expect(prefs.publisherStyles, isFalse);
+        expect(prefs.textAlign, equals(EPUBTextAlign.justify));
       });
     });
 

@@ -251,6 +251,16 @@ final class EPUBPreferencesExtensionTests: XCTestCase {
         XCTAssertEqual(prefs.publisherStyles, false)
     }
 
+    func testFromMapTextAlignLeft() {
+        let prefs = EPUBPreferences(fromMap: ["textAlign": "left"])
+        XCTAssertEqual(prefs.textAlign, .left)
+    }
+
+    func testFromMapTextAlignJustify() {
+        let prefs = EPUBPreferences(fromMap: ["textAlign": "justify"])
+        XCTAssertEqual(prefs.textAlign, .justify)
+    }
+
     func testFromMapColumnCountAndSpread() {
         let prefs = EPUBPreferences(fromMap: [
             "columnCount": "2",

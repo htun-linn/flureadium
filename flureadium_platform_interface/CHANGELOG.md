@@ -1,3 +1,11 @@
+## 0.11.0
+
+### Added
+
+- **`EPUBPreferences.textAlign`**: expose Readium's reflowable paragraph alignment (`EPUBTextAlign`: `start` / `left` / `right` / `justify` / `center` / `end`). When `null`, `toJson()` omits the key. Requires `publisherStyles: false` to take effect.
+
+---
+
 ## 0.10.0
 
 ### Added
