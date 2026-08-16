@@ -199,6 +199,8 @@ object ReadiumReader : TimebasedNavigator.TimebasedListener, EpubNavigator.Visua
     val pdfCurrentLocator: Locator?
         get() = pdfNavigator?.currentLocator?.value
 
+    private var _epubPreferences: EpubPreferences? = null
+
     private var _pdfPreferences: FlutterPdfPreferences = FlutterPdfPreferences()
 
     /** Current PDF preferences (defaults if PDF hasn't been enabled yet). */
@@ -748,13 +750,22 @@ object ReadiumReader : TimebasedNavigator.TimebasedListener, EpubNavigator.Visua
             throw Exception("Publication is not an EPUB, cannot enable epub navigator")
         }
 
+        // Flutter's platform view is recreated after Recents with the original
+        // creationParams. Prefer the last prefs pushed from Dart so the EPUB
+        // does not reopen with stale font/theme/align.
+        val prefs = _epubPreferences ?: initialPreferences
+        if (_epubPreferences == null) {
+            _epubPreferences = initialPreferences
+        }
+
         withScope(mainScope) {
             epubNavigator?.let {
                 attachEpubNavigator(fragmentManager, viewGroup)
+                it.updatePreferences(prefs)
                 return@withScope
             } // Already enabled - assume from restored state.
 
-            EpubNavigator(pub, initialLocator, this@ReadiumReader, initialPreferences).apply {
+            EpubNavigator(pub, initialLocator, this@ReadiumReader, prefs).apply {
                 initNavigator()
                 epubNavigator = this
                 attachEpubNavigator(fragmentManager, viewGroup)
@@ -1165,9 +1176,19 @@ object ReadiumReader : TimebasedNavigator.TimebasedListener, EpubNavigator.Visua
 
     /**
      * Update EPUB navigator preferences.
+     *
+     * Always stores [preferences] so a later [epubEnable] (Android platform
+     * view recreation) opens with the latest settings even if the navigator
+     * is null when this is called.
      */
     fun epubUpdatePreferences(preferences: EpubPreferences) {
-        epubNavigator?.updatePreferences(preferences)
+        _epubPreferences = preferences
+        val navigator = epubNavigator
+        if (navigator != null) {
+            navigator.updatePreferences(preferences)
+        } else {
+            Log.d(TAG, "epubUpdatePreferences: navigator not ready, stored for next enable")
+        }
     }
 
     /**
