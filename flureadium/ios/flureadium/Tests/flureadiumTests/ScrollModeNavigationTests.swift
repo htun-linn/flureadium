@@ -209,14 +209,14 @@ final class ScrollModeNavigationTests: XCTestCase {
             "interceptEdgeTaps must be false in scroll mode")
     }
 
-    func testPaginatedMode_interceptEdgeTapsTrue() {
-        // In paginated mode, configureEdgeTapHandlers sets interceptEdgeTaps = true
-        // regardless of enableEdgeTapNavigation, to block DirectionalNavigationAdapter.
+    func testPaginatedMode_interceptEdgeTapsOnlyWhenOverlayNavigationEnabled() {
+        // Overlay claims the edge zone only when tap or swipe navigation is on.
+        // With both off, interceptEdgeTaps is false so edge swipes reach WKWebView.
         let view = EdgeTapInterceptView(frame: CGRect(x: 0, y: 0, width: 375, height: 667))
-        view.interceptEdgeTaps = true  // simulate paginated mode branch
+        view.interceptEdgeTaps = false
 
-        XCTAssertTrue(view.interceptEdgeTaps,
-            "interceptEdgeTaps must be true in paginated mode")
+        XCTAssertFalse(view.interceptEdgeTaps,
+            "interceptEdgeTaps must be false when overlay tap/swipe are disabled")
     }
 
     // MARK: - isBackwardNavigation(from:to:in:)

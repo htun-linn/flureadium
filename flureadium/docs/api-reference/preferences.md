@@ -147,9 +147,11 @@ publisherStyles: false  // Required to enable lineHeight and other advanced over
 
 **Type:** `EPUBTextAlign?`
 
-Paragraph alignment for **reflowable** EPUB body text. Only takes effect when [`publisherStyles`](#publisherstyles) is `false`. Centered headings usually stay centered; this mainly drives `p` / `li` alignment.
+Paragraph alignment for **reflowable** EPUB body `<p>` text (`left` / `justify`).
 
-When `null`, `toJson()` omits the key and Readium keeps its default (often justify).
+ReadiumCSS sets `p { text-align: inherit !important }` whenever `--USER__textAlign` is present, which overwrites publisher `center` / `right`. Flureadium therefore does **not** pass `textAlign` into Readium. Left/justify are applied only to paragraphs that are not already center or right (inline `style`/`align`, or author CSS).
+
+When `null`, `toJson()` omits the key and body paragraphs keep their publisher alignment.
 
 ```dart
 textAlign: EPUBTextAlign.left     // Ragged right

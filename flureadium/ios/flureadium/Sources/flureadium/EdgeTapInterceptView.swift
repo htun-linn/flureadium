@@ -24,9 +24,9 @@ class EdgeTapInterceptView: UIView {
     /// Edge threshold in absolute points (default 44pt, iOS HIG minimum tap target)
     var edgeThresholdPoints: CGFloat = 44.0
     /// When true, hitTest returns self for any touch in an edge zone,
-    /// preventing downstream gesture recognizers (e.g. DirectionalNavigationAdapter)
-    /// from seeing those touches. Set to true in paginated mode regardless of
-    /// whether edge tap callbacks are configured.
+    /// so overlay tap/swipe callbacks can handle them. When false, edge
+    /// touches fall through to WKWebView (needed for Readium page-turn
+    /// swipes that start near the edge).
     var interceptEdgeTaps: Bool = false
 
     override init(frame: CGRect) {

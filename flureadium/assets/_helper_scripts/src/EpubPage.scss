@@ -153,3 +153,32 @@ table {
 :root[style*='--USER__textColor'] a[href]:visited * {
   color: var(--RS__visitedColor, #551a8b) !important;
 }
+
+// User left/justify only when html[data-mbo-para-align] is set.
+// Default (publisher) leaves that attribute unset so author CSS wins.
+// Do not set Readium --USER__textAlign (inherit !important on every p).
+html[data-mbo-para-align='left'] p:not([data-mbo-keep-align]) {
+  text-align: left !important;
+}
+
+html[data-mbo-para-align='justify'] p:not([data-mbo-keep-align]) {
+  text-align: justify !important;
+}
+
+html[data-mbo-para-align] p[style*='text-align:center'],
+html[data-mbo-para-align] p[style*='text-align: center'],
+html[data-mbo-para-align] p[style*='text-align:Center'],
+html[data-mbo-para-align] p[style*='text-align: Center'],
+html[data-mbo-para-align] p[align='center'],
+html[data-mbo-para-align] p[data-mbo-keep-align='center'] {
+  text-align: center !important;
+}
+
+html[data-mbo-para-align] p[style*='text-align:right'],
+html[data-mbo-para-align] p[style*='text-align: right'],
+html[data-mbo-para-align] p[style*='text-align:Right'],
+html[data-mbo-para-align] p[style*='text-align: Right'],
+html[data-mbo-para-align] p[align='right'],
+html[data-mbo-para-align] p[data-mbo-keep-align='right'] {
+  text-align: right !important;
+}

@@ -58,9 +58,10 @@ enum EPUBSpread {
 
 /// Body text alignment for **reflowable** EPUBs.
 ///
-/// Only takes effect when [EPUBPreferences.publisherStyles] is `false`.
-/// Headings that the publication centers usually stay centered; this mainly
-/// drives paragraph / list alignment (justify vs left).
+/// Native code does not forward this to Readium `--USER__textAlign` (that CSS
+/// forces every `p` to inherit). `null` on [EPUBPreferences.textAlign] keeps
+/// publisher alignment. Left/justify apply only to paragraphs that are not
+/// already center or right.
 enum EPUBTextAlign {
   start,
   left,
@@ -157,8 +158,10 @@ class EPUBPreferences {
 
   /// Paragraph alignment for reflowable EPUBs (`left`, `justify`, …).
   ///
-  /// When `null`, [toJson] omits the key and Readium keeps its default
-  /// (often justify). Requires [publisherStyles] `false` to apply.
+  /// Native Flureadium does not forward this to Readium `--USER__textAlign`
+  /// (that CSS forces every `p` to inherit and clobbers publisher center/right).
+  /// `null` keeps publisher alignment. Left/justify apply only to paragraphs
+  /// that are not already center or right.
   EPUBTextAlign? textAlign;
 
   // TODO: Add more preferences,

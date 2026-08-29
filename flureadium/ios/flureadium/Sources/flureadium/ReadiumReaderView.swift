@@ -31,6 +31,24 @@ func parseLocatorFragmentsResult(_ result: Any?) -> Locator? {
   return try? Locator(json: json, warnings: readiumBugLogger)
 }
 
+/// CSS value for our `--MBO__paraAlign` variable. Not sent to Readium.
+/// `"default"` means keep publisher alignment (no override).
+func mboCssAlign(_ align: TextAlignment?) -> String {
+  switch align {
+  case .justify: return "justify"
+  case .left: return "left"
+  default: return "default"
+  }
+}
+
+/// ReadiumCSS forces `p { text-align: inherit !important }` when
+/// `--USER__textAlign` is present. Strip it so publisher center/right survive.
+func preferencesWithoutReadiumTextAlign(_ preferences: EPUBPreferences) -> EPUBPreferences {
+  var prefs = preferences
+  prefs.textAlign = nil
+  return prefs
+}
+
 class ReadiumReaderView: NSObject, FlutterPlatformView, EPUBNavigatorDelegate, VisualNavigatorDelegate {
 
   private let channel: ReadiumReaderChannel
@@ -53,6 +71,8 @@ class ReadiumReaderView: NSObject, FlutterPlatformView, EPUBNavigatorDelegate, V
   private var spineItemHistory: [String: Locator] = [:]
   private var lastSpineItemLocator: Locator?
   private var currentSpineItemHref: String?
+  /// User left/justify; never forwarded to Readium `--USER__textAlign`.
+  private var mboParaAlign: String
 
   var publicationIdentifier: String?
 
@@ -83,12 +103,17 @@ class ReadiumReaderView: NSObject, FlutterPlatformView, EPUBNavigatorDelegate, V
 
     let preferencesMap = creationParams["preferences"] as? [String: String]
     // Default to single-column when Flutter sends no preferences map.
-    let defaultPreferences = preferencesMap.map { EPUBPreferences(fromMap: $0) }
+    var defaultPreferences = preferencesMap.map { EPUBPreferences(fromMap: $0) }
       ?? EPUBPreferences(columnCount: .one, spread: .never)
+    // ReadiumCSS `p { text-align: inherit !important }` fires when
+    // --USER__textAlign is set. Keep the Flutter value for our CSS instead.
+    mboParaAlign = mboCssAlign(defaultPreferences.textAlign)
+    defaultPreferences.textAlign = nil
 
-    // Navigation config uses defaults; updated via setNavigationConfig channel call
-    enableEdgeTapNavigation = true
-    enableSwipeNavigation = true
+    // Start with overlay gestures off so edge swipes reach WKWebView
+    // before Flutter applies setNavigationConfig.
+    enableEdgeTapNavigation = false
+    enableSwipeNavigation = false
     edgeTapAreaPoints = nil
 
     let locatorStr = creationParams["initialLocator"] as? String
@@ -160,14 +185,12 @@ class ReadiumReaderView: NSObject, FlutterPlatformView, EPUBNavigatorDelegate, V
     currentReaderView = self
     publicationIdentifier = publication.metadata.identifier
 
-    /// This adapter will automatically turn pages when the user taps the
-    /// screen edges or press arrow keys.
-    ///
-    /// Bind it to the navigator before adding your own observers to prevent
-    /// triggering your actions when turning pages.
-    /// NOTE: Store in property to prevent ARC deallocation
+    /// Keyboard arrows still turn pages. Touch taps are handled only by
+    /// `EdgeTapInterceptView` when `enableEdgeTapNavigation` is true.
+    /// Binding `.touch` here would keep ~30% left/right tap-to-turn even
+    /// after Flutter sends `enableEdgeTapNavigation: false`.
     directionalNavigationAdapter = DirectionalNavigationAdapter(
-        pointerPolicy: .init(types: [.mouse, .touch])
+        pointerPolicy: .init(types: [])
     )
     directionalNavigationAdapter?.bind(to: readiumViewController)
 
@@ -248,6 +271,7 @@ class ReadiumReaderView: NSObject, FlutterPlatformView, EPUBNavigatorDelegate, V
 
     currentSpineItemHref = newHref
     lastSpineItemLocator = locator
+    applyMboParagraphAlign()
 
     if !hasSentReady {
       self.readerStatusStreamHandler?.sendEvent(ReadiumReaderStatusReady)
@@ -304,20 +328,62 @@ class ReadiumReaderView: NSObject, FlutterPlatformView, EPUBNavigatorDelegate, V
 
   private func setUserPreferences(preferences: EPUBPreferences) {
     isVerticalScroll = preferences.scroll ?? false
-    self.readiumViewController.submitPreferences(preferences)
+    mboParaAlign = mboCssAlign(preferences.textAlign)
+    self.readiumViewController.submitPreferences(preferencesWithoutReadiumTextAlign(preferences))
     configureEdgeTapHandlers(isScrollMode: isVerticalScroll)
+    applyMboParagraphAlign()
+  }
+
+  private func applyMboParagraphAlign() {
+    let letters = mboParaAlign.filter(\.isLetter)
+    let align = letters.isEmpty ? "default" : letters
+    Task {
+      _ = await evaluateJavascript("""
+        (function(){
+          try { localStorage.setItem('mboParaAlign', '\(align)'); } catch(e) {}
+          window.__MBO_PARA_ALIGN = '\(align)';
+          function applyDoc(doc) {
+            if (!doc || !doc.documentElement) return;
+            var override = ('\(align)' === 'left' || '\(align)' === 'justify');
+            try {
+              if (override) {
+                doc.documentElement.style.setProperty('--MBO__paraAlign', '\(align)');
+                doc.documentElement.setAttribute('data-mbo-para-align', '\(align)');
+              } else {
+                doc.documentElement.style.removeProperty('--MBO__paraAlign');
+                doc.documentElement.removeAttribute('data-mbo-para-align');
+              }
+            } catch (e) {}
+            try {
+              var r = doc.defaultView && doc.defaultView.readium;
+              if (r && r.setCSSProperties) {
+                r.setCSSProperties({'--MBO__paraAlign': override ? '\(align)' : null});
+              }
+            } catch (e) {}
+            try {
+              var frames = doc.querySelectorAll('iframe');
+              for (var i = 0; i < frames.length; i++) {
+                try { applyDoc(frames[i].contentDocument); } catch (err) {}
+              }
+            } catch (e) {}
+          }
+          if (window.__mboSetParaAlign) { window.__mboSetParaAlign('\(align)'); }
+          else { applyDoc(document); }
+        })();
+      """)
+    }
   }
 
   /// Configure edge tap handlers based on scroll mode.
   /// In scroll mode, all callbacks are nil — WKWebView handles native swipes.
-  /// In paginated mode, edge taps trigger goLeft/goRight for page navigation.
+  /// In paginated mode, the overlay only claims the edge zone when tap or
+  /// swipe navigation is enabled. Otherwise edge swipes pass through to
+  /// Readium's page-turn gesture.
   private func configureEdgeTapHandlers(isScrollMode: Bool) {
     guard let edgeTapView = _view as? EdgeTapInterceptView else { return }
 
-    // In scroll mode, let WKWebView handle swipes natively — don't intercept.
-    // In paginated mode, always intercept edge zones so DirectionalNavigationAdapter
-    // cannot handle them, regardless of whether edge tap callbacks are set.
-    edgeTapView.interceptEdgeTaps = !isScrollMode
+    let overlayNavigation = enableEdgeTapNavigation || enableSwipeNavigation
+    edgeTapView.interceptEdgeTaps = !isScrollMode && overlayNavigation
 
     if isScrollMode {
       // Scroll mode: all callbacks nil.
@@ -635,8 +701,10 @@ func initUserScripts(registrar: FlutterPluginRegistrar) {
   let comicJsKey = registrar.lookupKey(forAsset: "assets/helpers/comics.js", fromPackage: "flureadium")
   let comicCssKey = registrar.lookupKey(forAsset: "assets/helpers/comics.css", fromPackage: "flureadium")
   let epubJsKey = registrar.lookupKey(forAsset: "assets/helpers/epub.js", fromPackage: "flureadium")
+  let preserveAlignJsKey = registrar.lookupKey(
+    forAsset: "assets/helpers/preserve-text-align.js", fromPackage: "flureadium")
   let epubCssKey = registrar.lookupKey(forAsset: "assets/helpers/epub.css", fromPackage: "flureadium")
-  let jsScripts = [comicJsKey, epubJsKey].map { sourceFile -> String in
+  let jsScripts = [comicJsKey, epubJsKey, preserveAlignJsKey].map { sourceFile -> String in
     let path = Bundle.main.path(forResource: sourceFile, ofType: nil)!
     let data = FileManager().contents(atPath: path)!
     return String(data: data, encoding: .utf8)!

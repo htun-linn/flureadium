@@ -183,4 +183,24 @@ final class ReadiumExtensionsMappingTests: XCTestCase {
         XCTAssertNil(prefs.scroll)
         XCTAssertNil(prefs.scrollAxis)
     }
+
+    func testMboCssAlignMapsJustifyAndLeft() {
+        XCTAssertEqual(mboCssAlign(.justify), "justify")
+        XCTAssertEqual(mboCssAlign(.left), "left")
+        XCTAssertEqual(mboCssAlign(nil), "default")
+    }
+
+    func testPreferencesWithoutReadiumTextAlignClearsTextAlignOnly() {
+        let prefs = EPUBPreferences(fromMap: [
+            "lineHeight": "1.5",
+            "publisherStyles": "false",
+            "textAlign": "justify",
+        ])
+        XCTAssertEqual(prefs.textAlign, .justify)
+        let stripped = preferencesWithoutReadiumTextAlign(prefs)
+        XCTAssertNil(stripped.textAlign)
+        XCTAssertEqual(stripped.lineHeight, 1.5)
+        XCTAssertEqual(stripped.publisherStyles, false)
+        XCTAssertEqual(prefs.textAlign, .justify)
+    }
 }

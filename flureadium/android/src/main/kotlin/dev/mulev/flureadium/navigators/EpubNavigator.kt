@@ -6,8 +6,10 @@ import android.view.ViewGroup
 import androidx.fragment.app.FragmentManager
 import androidx.fragment.app.commitNow
 import dev.mulev.flureadium.FlutterNavigationConfig
+import dev.mulev.flureadium.MboParagraphAlign
 import dev.mulev.flureadium.ReadiumReaderWidget.Companion.NAVIGATOR_FRAGMENT_TAG
 import dev.mulev.flureadium.canScroll
+import dev.mulev.flureadium.withoutReadiumTextAlign
 import dev.mulev.flureadium.fragments.EpubReaderFragment
 import dev.mulev.flureadium.jsonDecode
 import dev.mulev.flureadium.models.EpubReaderViewModel
@@ -57,6 +59,7 @@ class EpubNavigator : BaseNavigator, EpubReaderFragment.Listener {
     ) : super(publication, initialLocator) {
         this.initialPreferences = initialPreferences
         this.visualListener = visualListener
+        MboParagraphAlign.setFrom(initialPreferences.textAlign)
 
         this.state[currentVisualCurrentLocatorKey] = initialLocator
         this.state[epubPreferencesKey] = initialPreferences
@@ -148,14 +151,16 @@ class EpubNavigator : BaseNavigator, EpubReaderFragment.Listener {
                 if (canScroll(locations)) locations else null
             }
 
+        val readiumPrefs = initialPreferences.withoutReadiumTextAlign()
+        MboParagraphAlign.setFrom(initialPreferences.textAlign)
         epubNavigator = EpubReaderFragment().apply {
             vm = EpubReaderViewModel().apply {
                 navigatorFactory = EpubNavigatorFactory(publication)
                 locator = this@EpubNavigator.initialLocator
-                preferences = this@EpubNavigator.initialPreferences
+                preferences = readiumPrefs
 
                 editor =
-                    navigatorFactory!!.createPreferencesEditor(initialPreferences)
+                    navigatorFactory!!.createPreferencesEditor(readiumPrefs)
             }
             listener = this@EpubNavigator
         }
@@ -206,6 +211,11 @@ class EpubNavigator : BaseNavigator, EpubReaderFragment.Listener {
         } ?: "null"}, preferences=$preferences")
 
         try {
+            // Never pass textAlign to Readium: --USER__textAlign forces every
+            // p { text-align: inherit !important } and clobbers publisher
+            // center/right. We apply left/justify ourselves via --MBO__paraAlign.
+            MboParagraphAlign.setFrom(preferences.textAlign)
+            val readiumPrefs = preferences.withoutReadiumTextAlign()
             editor?.apply {
                 fontFamily.set(preferences.fontFamily)
                 fontSize.set(preferences.fontSize)
@@ -217,10 +227,11 @@ class EpubNavigator : BaseNavigator, EpubReaderFragment.Listener {
                 lineHeight.set(preferences.lineHeight)
                 columnCount.set(preferences.columnCount)
                 spread.set(preferences.spread)
-                textAlign.set(preferences.textAlign)
+                textAlign.set(null)
 
                 mainScope.launch {
-                    epubNavigator?.updatePreferences(preferences)
+                    epubNavigator?.updatePreferences(readiumPrefs)
+                    evaluateJavascript(MboParagraphAlign.applyScript())
 
                     val afterLocatorValue = epubNavigator?.currentLocator?.value
                     Log.d(TAG, "::updatePreferences - currentLocator AFTER=${afterLocatorValue?.let {
@@ -277,10 +288,12 @@ class EpubNavigator : BaseNavigator, EpubReaderFragment.Listener {
                 (state[currentVisualCurrentLocatorKey] as? Locator)?.toJSON()?.toString()
             )
 
-            preferences?.let { prefs ->
+            val storedPrefs = this@EpubNavigator.state[epubPreferencesKey] as? EpubPreferences
+            val prefs = storedPrefs ?: preferences
+            prefs?.let {
                 putString(
                     epubPreferencesKey,
-                    Json.encodeToString(EpubPreferences.serializer(), prefs)
+                    Json.encodeToString(EpubPreferences.serializer(), it)
                 )
             }
         }
@@ -301,6 +314,9 @@ class EpubNavigator : BaseNavigator, EpubReaderFragment.Listener {
             "currentInstance=$currentFragment")
 
         visualListener.onPageLoaded()
+        mainScope.launch {
+            evaluateJavascript(MboParagraphAlign.applyScript())
+        }
 
         pendingScrollToLocations?.let { locations ->
             Log.d(TAG, "::onPageLoaded #$pageLoadCount - executing pendingScrollToLocations: $locations")

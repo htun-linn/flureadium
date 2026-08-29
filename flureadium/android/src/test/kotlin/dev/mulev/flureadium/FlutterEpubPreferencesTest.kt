@@ -2,7 +2,9 @@ package dev.mulev.flureadium
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 import org.readium.r2.navigator.epub.EpubPreferences
 import org.readium.r2.navigator.preferences.ColumnCount
 import org.readium.r2.navigator.preferences.Spread
@@ -183,5 +185,34 @@ internal class FlutterEpubPreferencesTest {
         val prefs = epubPreferencesFromMap(map, defaults = defaults)
 
         assertEquals(TextAlign.LEFT, prefs.textAlign)
+    }
+
+    @Test
+    fun mboParagraphAlign_mapsJustifyAndLeft() {
+        assertEquals("justify", MboParagraphAlign.from(TextAlign.JUSTIFY))
+        assertEquals("left", MboParagraphAlign.from(TextAlign.LEFT))
+        assertEquals("default", MboParagraphAlign.from(null))
+    }
+
+    @Test
+    fun withoutReadiumTextAlign_clearsTextAlignOnly() {
+        val prefs = EpubPreferences(
+            lineHeight = 1.5,
+            publisherStyles = false,
+            textAlign = TextAlign.JUSTIFY,
+        )
+        val stripped = prefs.withoutReadiumTextAlign()
+        assertNull(stripped.textAlign)
+        assertEquals(1.5, stripped.lineHeight)
+        assertEquals(false, stripped.publisherStyles)
+        assertEquals(TextAlign.JUSTIFY, prefs.textAlign)
+    }
+
+    @Test
+    fun applyScript_setsMboHookNotReadiumUserTextAlign() {
+        val script = MboParagraphAlign.applyScript("justify")
+        assertTrue(script.contains("mboParaAlign"))
+        assertTrue(script.contains("justify"))
+        assertFalse(script.contains("--USER__textAlign"))
     }
 }

@@ -128,6 +128,65 @@ private fun textAlignFromWire(value: String): TextAlign? = when (value) {
     else -> null
 }
 
+/**
+ * ReadiumCSS applies `p { text-align: inherit !important }` whenever
+ * `--USER__textAlign` is set, which overwrites publisher center/right.
+ * We keep the Flutter `textAlign` value for our own CSS variable instead.
+ */
+internal object MboParagraphAlign {
+    @Volatile
+    var cssValue: String = "default"
+
+    fun from(align: TextAlign?): String = when (align) {
+        TextAlign.JUSTIFY -> "justify"
+        TextAlign.LEFT -> "left"
+        else -> "default"
+    }
+
+    fun setFrom(align: TextAlign?) {
+        cssValue = from(align)
+    }
+
+    fun applyScript(align: String = cssValue): String {
+        val safe = align.filter { it.isLetter() }.ifEmpty { "default" }
+        return """
+            (function(){
+              try { localStorage.setItem('mboParaAlign', '$safe'); } catch(e) {}
+              window.__MBO_PARA_ALIGN = '$safe';
+              function applyDoc(doc) {
+                if (!doc || !doc.documentElement) return;
+                var override = ('$safe' === 'left' || '$safe' === 'justify');
+                try {
+                  if (override) {
+                    doc.documentElement.style.setProperty('--MBO__paraAlign', '$safe');
+                    doc.documentElement.setAttribute('data-mbo-para-align', '$safe');
+                  } else {
+                    doc.documentElement.style.removeProperty('--MBO__paraAlign');
+                    doc.documentElement.removeAttribute('data-mbo-para-align');
+                  }
+                } catch (e) {}
+                try {
+                  var r = doc.defaultView && doc.defaultView.readium;
+                  if (r && r.setCSSProperties) {
+                    r.setCSSProperties({'--MBO__paraAlign': override ? '$safe' : null});
+                  }
+                } catch (e) {}
+                try {
+                  var frames = doc.querySelectorAll('iframe');
+                  for (var i = 0; i < frames.length; i++) {
+                    try { applyDoc(frames[i].contentDocument); } catch (err) {}
+                  }
+                } catch (e) {}
+              }
+              if (window.__mboSetParaAlign) window.__mboSetParaAlign('$safe');
+              else applyDoc(document);
+            })();
+        """.trimIndent()
+    }
+}
+
+internal fun EpubPreferences.withoutReadiumTextAlign(): EpubPreferences = copy(textAlign = null)
+
 private const val READIUM_FLUTTER_PATH_PREFIX =
     "https://readium/assets/flutter_assets/packages/flureadium"
 
@@ -159,6 +218,8 @@ fun Resource.injectScriptsAndStyles(): Resource =
         val injectLines = listOf(
             """<script type="text/javascript" src="$READIUM_FLUTTER_PATH_PREFIX/assets/helpers/comics.js"></script>""",
             """<script type="text/javascript" src="$READIUM_FLUTTER_PATH_PREFIX/assets/helpers/epub.js"></script>""",
+            """<script type="text/javascript">window.__MBO_PARA_ALIGN="${MboParagraphAlign.cssValue}";</script>""",
+            """<script type="text/javascript" src="$READIUM_FLUTTER_PATH_PREFIX/assets/helpers/preserve-text-align.js"></script>""",
             """<script type="text/javascript">const isAndroid = true; const isIos = false;</script>""",
             """<link rel="stylesheet" type="text/css" href="$READIUM_FLUTTER_PATH_PREFIX/assets/helpers/comics.css"></link>""",
             """<link rel="stylesheet" type="text/css" href="$READIUM_FLUTTER_PATH_PREFIX/assets/helpers/epub.css"></link>""",
