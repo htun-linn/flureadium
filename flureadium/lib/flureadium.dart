@@ -207,6 +207,32 @@ class Flureadium {
     List<ReaderDecoration> decorations,
   ) => _platform.applyDecorations(id, decorations);
 
+  /// Selects the full text range described by an EPUB [locator].
+  Future<void> selectLocator(Locator locator) async {
+    final reader = _platform.currentReaderWidget;
+    if (reader != null && reader is ReadiumReaderSelectionInterface) {
+      await (reader as ReadiumReaderSelectionInterface).selectLocator(locator);
+    }
+  }
+
+  /// Clears a programmatically selected EPUB passage.
+  Future<void> clearSelection() async {
+    final reader = _platform.currentReaderWidget;
+    if (reader != null && reader is ReadiumReaderSelectionInterface) {
+      await (reader as ReadiumReaderSelectionInterface).clearSelection();
+    }
+  }
+
+  /// Returns the selected EPUB range from the active visual reader, or null
+  /// when no text is selected or the platform does not expose selections.
+  Future<Locator?> getCurrentSelection() async {
+    final reader = _platform.currentReaderWidget;
+    if (reader == null || reader is! ReadiumReaderSelectionInterface) {
+      return null;
+    }
+    return (reader as ReadiumReaderSelectionInterface).getCurrentSelection();
+  }
+
   /// Enables text-to-speech mode with optional preferences.
   ///
   /// [fromLocator] optionally starts TTS from a saved position.

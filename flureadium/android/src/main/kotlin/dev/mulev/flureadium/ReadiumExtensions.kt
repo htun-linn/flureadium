@@ -37,8 +37,17 @@ private fun readiumColorFromCSS(cssColor: String): ReadiumColor {
 
 fun decorationFromMap(decoMap: Map<String, Any>): Decoration? {
     try {
-        val id = decoMap["decorationId"] as String
-        val locator = Locator.fromJSON(jsonDecode(decoMap["locator"] as String) as JSONObject)
+        // Flutter's ReaderDecoration.toJson() uses `id` and sends its locator
+        // as a nested map. Accept the older native wire names as well so this
+        // bridge remains compatible with existing clients.
+        val id = (decoMap["id"] ?: decoMap["decorationId"]) as String
+        val locatorValue = decoMap["locator"]
+        val locatorJson = when (locatorValue) {
+            is String -> jsonDecode(locatorValue) as JSONObject
+            is Map<*, *> -> JSONObject(locatorValue)
+            else -> throw IllegalArgumentException("Missing or invalid decoration locator")
+        }
+        val locator = Locator.fromJSON(decorationTextScope(locatorJson))
             ?: throw Exception("Failed to deserialize locator")
 
         @Suppress("UNCHECKED_CAST")
@@ -51,6 +60,37 @@ fun decorationFromMap(decoMap: Map<String, Any>): Decoration? {
     }
 }
 
+/** Keeps Readium's quote search inside an element containing the entire passage. */
+internal fun decorationTextScope(locatorJson: JSONObject): JSONObject {
+    // Readium 3.1.2's decoration renderer searches text.highlight under
+    // locations.cssSelector; it does not resolve locations.domRange. Older
+    // Flureadium selections used the first endpoint's element as that scope,
+    // which excludes subsequent paragraphs or inline siblings.
+    if (locatorJson.optJSONObject("text")?.optString("highlight").isNullOrEmpty()) {
+        return locatorJson
+    }
+    val locations = locatorJson.optJSONObject("locations") ?: return locatorJson
+    val range = locations.optJSONObject("domRange") ?: return locatorJson
+    val start = range.optJSONObject("start")?.optString("cssSelector").orEmpty()
+    val end = range.optJSONObject("end")?.optString("cssSelector").orEmpty()
+    if (start.isBlank() || end.isBlank() || start == end) return locatorJson
+    val scope = locations.optString("cssSelector")
+    if (scope != start && scope != end) return locatorJson
+
+    // Our saved selectors are paths rooted at body. Retain the most specific
+    // shared ancestor; other selector forms safely fall back to the document.
+    val startPath = start.split(" > ")
+    val endPath = end.split(" > ")
+    val common = if (startPath.first() == "body" && endPath.first() == "body") {
+        startPath.zip(endPath).takeWhile { (left, right) -> left == right }
+            .joinToString(" > ") { (left, _) -> left }
+    } else {
+        "body"
+    }
+    locations.put("cssSelector", common)
+    return locatorJson
+}
+
 fun decorationStyleFromMap(decoMap: Map<*, *>?): Decoration.Style? {
     try {
         if (decoMap == null) return null
@@ -59,6 +99,7 @@ fun decorationStyleFromMap(decoMap: Map<*, *>?): Decoration.Style? {
         val tintColorStr = decoMap["tint"] as String
         val style = when (styleStr) {
             "underline" -> Decoration.Style.Underline(readiumColorFromCSS(tintColorStr).int)
+            "noteMarker" -> NoteMarkerDecorationStyle(readiumColorFromCSS(tintColorStr).int)
             "highlight" -> Decoration.Style.Highlight(readiumColorFromCSS(tintColorStr).int)
             else -> Decoration.Style.Highlight(readiumColorFromCSS(tintColorStr).int)
         }

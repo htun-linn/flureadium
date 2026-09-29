@@ -71,7 +71,8 @@ extension Decoration {
   init(fromMap jsonMap: Dictionary<String, String>?) throws {
     guard let jsonObject = jsonMap,
           let idString = jsonObject["id"],
-          let locator = try Locator.init(jsonString: jsonObject["locator"]!),
+          let locatorJSON = jsonObject["locator"],
+          let locator = try Locator.init(jsonString: locatorJSON),
           let styleStr = jsonObject["style"],
           let tintHexStr = jsonObject["tint"],
           let tintColor = Color(hex: tintHexStr),
@@ -89,6 +90,10 @@ extension Decoration {
 
 extension Decoration.Style {
   init(withStyle style: String, tintColor: Color) throws {
+    if style == "noteMarker" {
+      self.init(id: .mboNoteMarker, config: tintColor.uiColor)
+      return
+    }
     let styleId = Decoration.Style.Id(rawValue: style)
     self.init(id: styleId, config: HighlightConfig(tint: tintColor.uiColor))
   }
@@ -115,6 +120,10 @@ extension Decoration.Style {
     }
     try self.init(withStyle: styleStr, tintColor: tintColor)
   }
+}
+
+extension Decoration.Style.Id {
+  static let mboNoteMarker: Decoration.Style.Id = "mbo-note-marker"
 }
 
 extension TTSVoice.Quality {

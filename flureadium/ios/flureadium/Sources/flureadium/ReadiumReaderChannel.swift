@@ -17,4 +17,13 @@ class ReadiumReaderChannel: FlutterMethodChannel {
   func onExternalLinkActivated(url: URL) {
     invokeMethod("onExternalLinkActivated", arguments: url.absoluteString as String?)
   }
+
+  func onSelectionAction(action: String, locator: Locator) {
+    invokeMethod("onSelectionAction", arguments: ["action": action, "locator": locator.jsonString])
+  }
+
+  func onDecorationTapped(id: String, locator: Locator) {
+    invokeMethod("onDecorationTapped", arguments: ["id": id, "locator": locator.jsonString])
+  }
+
 }

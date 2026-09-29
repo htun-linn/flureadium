@@ -10,7 +10,10 @@ enum _ReaderChannelMethodInvoke {
   goLeft,
   goRight,
   getCurrentLocator,
+  getCurrentSelection,
   getLocatorFragments,
+  selectLocator,
+  clearSelection,
   setLocation,
   isLocatorVisible,
   dispose,
@@ -25,12 +28,16 @@ class ReadiumReaderChannel extends MethodChannel {
     super.name, {
     required this.onPageChanged,
     this.onExternalLinkActivated,
+    this.onSelectionAction,
+    this.onDecorationTapped,
   }) {
     setMethodCallHandler(onMethodCall);
   }
 
   final void Function(Locator) onPageChanged;
   void Function(String)? onExternalLinkActivated;
+  void Function(String, Locator)? onSelectionAction;
+  void Function(String, Locator)? onDecorationTapped;
 
   /// Go e.g. navigate to a specific locator in the publication.
   Future<void> go(
@@ -120,6 +127,17 @@ class ReadiumReaderChannel extends MethodChannel {
     ]);
   }
 
+  Future<void> selectLocator(final Locator locator) async {
+    return await _invokeMethod(
+      _ReaderChannelMethodInvoke.selectLocator,
+      json.encode(locator.toJson()),
+    );
+  }
+
+  Future<void> clearSelection() async {
+    await _invokeMethod(_ReaderChannelMethodInvoke.clearSelection);
+  }
+
   /// Get the current locator.
   Future<Locator?> getCurrentLocator() async =>
       await _invokeMethod<dynamic>(
@@ -130,6 +148,22 @@ class ReadiumReaderChannel extends MethodChannel {
             ? Locator.fromJson(json.decode(locStr) as Map<String, dynamic>)
             : null,
       );
+
+  /// Gets the selected EPUB range from the native reader, if one exists.
+  Future<Locator?> getCurrentSelection() async =>
+      await _invokeMethod<dynamic>(
+        _ReaderChannelMethodInvoke.getCurrentSelection,
+        [],
+      ).then((value) {
+        if (value == null) return null;
+        if (value is String) {
+          return Locator.fromJson(json.decode(value) as Map<String, dynamic>);
+        }
+        if (value is Map) {
+          return Locator.fromJson(value.cast<String, dynamic>());
+        }
+        return null;
+      });
 
   /// Check if a locator is currently visible on screen.
   Future<bool> isLocatorVisible(final Locator locator) =>
@@ -173,6 +207,28 @@ class ReadiumReaderChannel extends MethodChannel {
           R2Log.d('onExternalLinkActivated $link');
           onExternalLinkActivated?.call(link);
 
+          return null;
+        case 'onSelectionAction':
+          final args = (call.arguments as Map).cast<String, dynamic>();
+          final locatorValue = args['locator'];
+          final locatorJson = locatorValue is String
+              ? json.decode(locatorValue) as Map<String, dynamic>
+              : (locatorValue as Map).cast<String, dynamic>();
+          final locator = Locator.fromJson(locatorJson);
+          final action = args['action'] as String;
+          if (locator != null) onSelectionAction?.call(action, locator);
+          return null;
+        case 'onDecorationTapped':
+          final args = (call.arguments as Map).cast<String, dynamic>();
+          final locatorValue = args['locator'];
+          final locatorJson = locatorValue is String
+              ? json.decode(locatorValue) as Map<String, dynamic>
+              : (locatorValue as Map).cast<String, dynamic>();
+          final locator = Locator.fromJson(locatorJson);
+          final decorationId = args['id'] as String;
+          if (locator != null) {
+            onDecorationTapped?.call(decorationId, locator);
+          }
           return null;
         default:
           throw UnimplementedError('Unhandled call ${call.method}');

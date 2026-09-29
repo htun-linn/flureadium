@@ -12,6 +12,10 @@ private let TAG = "ReadiumReaderPlugin"
 internal var currentPublicationUrlStr: String?
 internal var currentPublication: Publication?
 internal weak var currentReaderView: ReadiumReaderView?
+
+@MainActor public func flureadiumHandleSelectionAction(_ action: String) {
+  currentReaderView?.performSelectionAction(action)
+}
 internal weak var currentPdfReaderView: PdfReaderView?
 internal weak var currentImageReaderView: ImageReaderView?
 

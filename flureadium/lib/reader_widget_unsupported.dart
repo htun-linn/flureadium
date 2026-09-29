@@ -10,11 +10,15 @@ ReadiumReaderChannel createReadiumReaderChannel(
   int id, {
   required ValueChanged<Locator> onPageChanged,
   ValueChanged<String>? onExternalLinkActivated,
+  void Function(String, Locator)? onSelectionAction,
+  void Function(String, Locator)? onDecorationTapped,
 }) {
   return ReadiumReaderChannel(
     '$_viewType:$id',
     onPageChanged: onPageChanged,
     onExternalLinkActivated: onExternalLinkActivated,
+    onSelectionAction: onSelectionAction,
+    onDecorationTapped: onDecorationTapped,
   );
 }
 
@@ -28,6 +32,8 @@ class ReadiumReaderWidget extends StatelessWidget {
     this.onGoRight,
     this.onSwipe,
     this.onExternalLinkActivated,
+    this.onSelectionAction,
+    this.onDecorationTapped,
     this.onLocatorChanged,
     this.onReady,
     super.key,
@@ -41,6 +47,8 @@ class ReadiumReaderWidget extends StatelessWidget {
   final VoidCallback? onGoRight;
   final VoidCallback? onSwipe;
   final Function(String)? onExternalLinkActivated;
+  final void Function(String, Locator)? onSelectionAction;
+  final void Function(String, Locator)? onDecorationTapped;
   final void Function(Locator)? onLocatorChanged;
 
   /// Not invoked on unsupported platforms.

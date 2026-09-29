@@ -29,6 +29,7 @@ import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import org.json.JSONObject
 import org.readium.r2.navigator.Decoration
+import org.readium.r2.navigator.DecorableNavigator
 import org.readium.r2.navigator.epub.EpubNavigatorFactory
 import org.readium.r2.navigator.epub.EpubPreferences
 import org.readium.r2.navigator.epub.EpubPreferencesEditor
@@ -86,6 +87,9 @@ class EpubNavigator : BaseNavigator, EpubReaderFragment.Listener {
          */
         fun onExternalLinkActivated(url: AbsoluteUrl)
 
+        /** Called when a user taps an EPUB decoration. */
+        fun onDecorationTapped(id: String, locator: Locator)
+
         /**
          * Called when the current locator has changed.
          */
@@ -113,6 +117,16 @@ class EpubNavigator : BaseNavigator, EpubReaderFragment.Listener {
      * Editor to modify EPUB preferences.
      */
     private var editor: EpubPreferencesEditor? = null
+
+    private val annotationDecorationListener = object : DecorableNavigator.Listener {
+        override fun onDecorationActivated(
+            event: DecorableNavigator.OnActivatedEvent
+        ): Boolean {
+            if (event.group != ANNOTATION_DECORATION_GROUP) return false
+            visualListener.onDecorationTapped(event.decoration.id, event.decoration.locator)
+            return true
+        }
+    }
 
     /**
      * Pending scroll target to be applied when the page is loaded.
@@ -253,6 +267,8 @@ class EpubNavigator : BaseNavigator, EpubReaderFragment.Listener {
         }
 
         val currentLocator = navigator.currentLocator
+        navigator.removeDecorationListener(annotationDecorationListener)
+        navigator.addDecorationListener(ANNOTATION_DECORATION_GROUP, annotationDecorationListener)
         if (currentLocator != null) {
             // Log the current value before subscribing
             val currentValue = currentLocator.value
@@ -421,6 +437,83 @@ class EpubNavigator : BaseNavigator, EpubReaderFragment.Listener {
         }
     }
 
+    /** Selects the saved passage after navigating back to its resource. */
+    suspend fun selectLocator(locator: Locator) {
+        goToLocator(locator, animated = false)
+        val locatorString = JSONObject.quote(locator.toJSON().toString())
+        val script = """(function() {
+          try {
+            const locator = JSON.parse($locatorString);
+            const locations = locator.locations || {};
+            const domRange = locations.domRange;
+            const boundary = (value) => {
+              if (!value || !value.cssSelector) return null;
+              const element = document.querySelector(value.cssSelector);
+              if (!element) return null;
+              if (value.charOffset !== undefined) {
+                const textNodes = Array.from(element.childNodes)
+                  .filter(node => node.nodeType === Node.TEXT_NODE);
+                const node = textNodes[value.textNodeIndex];
+                return node ? { node, offset: value.charOffset } : null;
+              }
+              return { node: element, offset: value.textNodeIndex };
+            };
+            let range = null;
+            if (domRange && domRange.start && domRange.end) {
+              const start = boundary(domRange.start);
+              const end = boundary(domRange.end);
+              if (start && end) {
+                range = document.createRange();
+                range.setStart(start.node, start.offset);
+                range.setEnd(end.node, end.offset);
+              }
+            }
+            const quote = locator.text && locator.text.highlight;
+            // Older locators may contain element offsets encoded as text-node
+            // indexes. Reject them when they no longer select the saved quote,
+            // then recover from the quote below.
+            if (range && quote && range.toString() !== quote) range = null;
+            if (!range) {
+              if (!quote) return false;
+              const preferredRoot = locations.cssSelector
+                ? document.querySelector(locations.cssSelector)
+                : null;
+              for (const root of [preferredRoot, document.body]) {
+                if (!root) continue;
+                const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+                const nodes = [];
+                let text = '';
+                while (walker.nextNode()) {
+                  const node = walker.currentNode;
+                  nodes.push({ node, start: text.length, end: text.length + node.textContent.length });
+                  text += node.textContent;
+                }
+                const startIndex = text.indexOf(quote);
+                if (startIndex < 0) continue;
+                const endIndex = startIndex + quote.length;
+                const startNode = nodes.find(item => item.start <= startIndex && item.end > startIndex);
+                const endNode = nodes.find(item => item.start < endIndex && item.end >= endIndex);
+                if (!startNode || !endNode) continue;
+                range = document.createRange();
+                range.setStart(startNode.node, startIndex - startNode.start);
+                range.setEnd(endNode.node, endIndex - endNode.start);
+                break;
+              }
+              if (!range) return false;
+            }
+            const selection = window.getSelection();
+            selection.removeAllRanges();
+            selection.addRange(range);
+            return true;
+          } catch (_) { return false; }
+        })()"""
+        evaluateJavascript(script)
+    }
+
+    fun clearSelection() {
+        epubNavigator?.clearSelection()
+    }
+
     fun setNavigationConfig(config: FlutterNavigationConfig) {
         epubNavigator?.setNavigationConfig(config)
     }
@@ -485,6 +578,153 @@ class EpubNavigator : BaseNavigator, EpubReaderFragment.Listener {
             )
         }
         return null
+    }
+
+    /** Builds a locator for the selected DOM range without changing reader state. */
+    suspend fun getCurrentSelection(): String? {
+        // `window.readium` is ReadiumCSS' preference API; it does not expose the
+        // current publication link. Take the resource identity from the native
+        // navigator's current locator and add the DOM range returned by WebView.
+        val current = epubNavigator?.currentLocator?.value ?: return null
+        val script = """(function() {
+          try {
+            const selection = window.getSelection();
+            if (!selection || selection.isCollapsed || !selection.rangeCount) return null;
+            const range = selection.getRangeAt(0).cloneRange();
+            const highlight = range.toString();
+            if (!highlight.trim()) return null;
+            const selectorFor = (node) => {
+              let element = node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement;
+              if (!element) return null;
+              const parts = [];
+              while (element && element !== document.body) {
+                const tag = element.tagName.toLowerCase();
+                const sameTag = Array.from(element.parentElement?.children || [])
+                  .filter(child => child.tagName === element.tagName);
+                parts.unshift(tag + ':nth-of-type(' + (sameTag.indexOf(element) + 1) + ')');
+                element = element.parentElement;
+              }
+              return 'body' + (parts.length ? ' > ' + parts.join(' > ') : '');
+            };
+            const boundary = (node, offset, isStart) => {
+              const firstTextWithin = (candidate) => {
+                if (!candidate) return null;
+                if (candidate.nodeType === Node.TEXT_NODE) return candidate;
+                for (const child of candidate.childNodes || []) {
+                  const found = firstTextWithin(child);
+                  if (found) return found;
+                }
+                return null;
+              };
+              const lastTextWithin = (candidate) => {
+                if (!candidate) return null;
+                if (candidate.nodeType === Node.TEXT_NODE) return candidate;
+                const children = Array.from(candidate.childNodes || []);
+                for (let index = children.length - 1; index >= 0; index--) {
+                  const found = lastTextWithin(children[index]);
+                  if (found) return found;
+                }
+                return null;
+              };
+              const nextTextAfter = (candidate) => {
+                let current = candidate;
+                while (current && current !== document.body) {
+                  let sibling = current.nextSibling;
+                  while (sibling) {
+                    const found = firstTextWithin(sibling);
+                    if (found) return found;
+                    sibling = sibling.nextSibling;
+                  }
+                  current = current.parentNode;
+                }
+                return null;
+              };
+              const previousTextBefore = (candidate) => {
+                let current = candidate;
+                while (current && current !== document.body) {
+                  let sibling = current.previousSibling;
+                  while (sibling) {
+                    const found = lastTextWithin(sibling);
+                    if (found) return found;
+                    sibling = sibling.previousSibling;
+                  }
+                  current = current.parentNode;
+                }
+                return null;
+              };
+              let textNode;
+              let charOffset;
+              if (node.nodeType === Node.TEXT_NODE) {
+                textNode = node;
+                charOffset = offset;
+              } else {
+                const children = Array.from(node.childNodes || []);
+                if (isStart) {
+                  for (let index = offset; index < children.length && !textNode; index++) {
+                    textNode = firstTextWithin(children[index]);
+                  }
+                  if (!textNode) textNode = nextTextAfter(node);
+                  charOffset = 0;
+                } else {
+                  for (let index = Math.min(offset, children.length) - 1;
+                       index >= 0 && !textNode; index--) {
+                    textNode = lastTextWithin(children[index]);
+                  }
+                  if (!textNode) textNode = previousTextBefore(node);
+                  charOffset = textNode?.textContent?.length;
+                }
+              }
+              const element = textNode?.parentElement;
+              if (!element) return null;
+              const textNodes = Array.from(element.childNodes)
+                .filter(child => child.nodeType === Node.TEXT_NODE);
+              const textNodeIndex = textNodes.indexOf(textNode);
+              if (textNodeIndex < 0 || charOffset === undefined) return null;
+              return {
+                cssSelector: selectorFor(element),
+                textNodeIndex: textNodeIndex,
+                charOffset: charOffset
+              };
+            };
+            const start = boundary(range.startContainer, range.startOffset, true);
+            const end = boundary(range.endContainer, range.endOffset, false);
+            if (!start || !end) return null;
+            const ancestor = range.commonAncestorContainer;
+            const root = ancestor.nodeType === Node.TEXT_NODE ? ancestor.parentElement : ancestor;
+            const cssSelector = selectorFor(root);
+            if (!cssSelector) return null;
+            const before = document.createRange();
+            before.selectNodeContents(root);
+            before.setEnd(range.startContainer, range.startOffset);
+            const after = document.createRange();
+            after.selectNodeContents(root);
+            after.setStart(range.endContainer, range.endOffset);
+            return {
+              locations: { cssSelector, domRange: { start, end } },
+              text: {
+                highlight,
+                before: Array.from(before.toString()).slice(-64).join(''),
+                after: Array.from(after.toString()).slice(0, 64).join('')
+              }
+            };
+          } catch (_) { return null; }
+        })()"""
+        val result = evaluateJavascript(script) ?: return null
+        if (result == "null" || result == "undefined") return null
+        return try {
+            val selection = jsonDecode(result) as? JSONObject ?: return null
+            val locator = current.toJSON().apply {
+                put("locations", JSONObject(current.locations.toJSON().toString()).apply {
+                    put("cssSelector", selection.getJSONObject("locations").optString("cssSelector"))
+                    put("domRange", selection.getJSONObject("locations").getJSONObject("domRange"))
+                })
+                put("text", selection.getJSONObject("text"))
+            }
+            locator.toString()
+        } catch (ex: Exception) {
+            Log.w(TAG, "Could not build locator for current EPUB selection", ex)
+            null
+        }
     }
 
     suspend fun firstVisibleElementLocator(): Locator? {
@@ -587,6 +827,8 @@ class EpubNavigator : BaseNavigator, EpubReaderFragment.Listener {
     }
 
     companion object {
+        const val ANNOTATION_DECORATION_GROUP = "book-annotations"
+
         fun restoreState(
             publication: Publication,
             listener: VisualListener,

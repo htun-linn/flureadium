@@ -13,4 +13,11 @@ internal class ReadiumReaderChannel(messenger: BinaryMessenger, name: String) :
 
     fun onExternalLinkActivated(url: AbsoluteUrl) =
         invokeMethod("onExternalLinkActivated", url.toString())
+
+    fun onSelectionAction(action: String, locatorJson: String) =
+        invokeMethod("onSelectionAction", mapOf("action" to action, "locator" to locatorJson))
+
+    fun onDecorationTapped(id: String, locatorJson: String) =
+        invokeMethod("onDecorationTapped", mapOf("id" to id, "locator" to locatorJson))
+
 }

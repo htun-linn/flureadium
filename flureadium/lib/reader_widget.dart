@@ -23,11 +23,15 @@ ReadiumReaderChannel createReadiumReaderChannel(
   int id, {
   required ValueChanged<Locator> onPageChanged,
   ValueChanged<String>? onExternalLinkActivated,
+  void Function(String, Locator)? onSelectionAction,
+  void Function(String, Locator)? onDecorationTapped,
 }) {
   return ReadiumReaderChannel(
     '$_viewType:$id',
     onPageChanged: onPageChanged,
     onExternalLinkActivated: onExternalLinkActivated,
+    onSelectionAction: onSelectionAction,
+    onDecorationTapped: onDecorationTapped,
   );
 }
 
@@ -42,6 +46,8 @@ class ReadiumReaderWidget extends StatefulWidget {
     this.onGoRight,
     this.onSwipe,
     this.onExternalLinkActivated,
+    this.onSelectionAction,
+    this.onDecorationTapped,
     this.onLocatorChanged,
     this.onReady,
     super.key,
@@ -55,6 +61,8 @@ class ReadiumReaderWidget extends StatefulWidget {
   final VoidCallback? onGoRight;
   final VoidCallback? onSwipe;
   final Function(String)? onExternalLinkActivated;
+  final void Function(String, Locator)? onSelectionAction;
+  final void Function(String, Locator)? onDecorationTapped;
   final void Function(Locator)? onLocatorChanged;
 
   /// Called once when the native platform view has been created and all
@@ -69,7 +77,7 @@ class ReadiumReaderWidget extends StatefulWidget {
 
 class _ReadiumReaderWidgetState extends State<ReadiumReaderWidget>
     with WakelockManagerMixin, ReaderLifecycleMixin, OrientationHandlerMixin
-    implements ReadiumReaderWidgetInterface {
+    implements ReadiumReaderWidgetInterface, ReadiumReaderSelectionInterface {
   ReadiumReaderChannel? _channel;
   StreamSubscription<Locator>? _locatorDebugSub;
   bool wasDestroyed = false;
@@ -327,6 +335,12 @@ class _ReadiumReaderWidgetState extends State<ReadiumReaderWidget>
   }
 
   @override
+  Future<Locator?> getCurrentSelection() async {
+    await _awaitNativeViewReady();
+    return _channel?.getCurrentSelection();
+  }
+
+  @override
   Future<void> setEPUBPreferences(EPUBPreferences preferences) async {
     _channel?.setEPUBPreferences(preferences);
   }
@@ -347,6 +361,16 @@ class _ReadiumReaderWidgetState extends State<ReadiumReaderWidget>
     List<ReaderDecoration> decorations,
   ) async {
     await _channel?.applyDecorations(id, decorations);
+  }
+
+  @override
+  Future<void> selectLocator(Locator locator) async {
+    await _channel?.selectLocator(locator);
+  }
+
+  @override
+  Future<void> clearSelection() async {
+    await _channel?.clearSelection();
   }
 
   Widget _buildNativeReader() {
@@ -440,6 +464,8 @@ class _ReadiumReaderWidgetState extends State<ReadiumReaderWidget>
         }
       },
       onExternalLinkActivated: widget.onExternalLinkActivated,
+      onSelectionAction: widget.onSelectionAction,
+      onDecorationTapped: widget.onDecorationTapped,
     );
 
     // Register as current widget only after _channel is assigned.

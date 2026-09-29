@@ -3,12 +3,14 @@ import 'package:flutter/material.dart' show Color, Colors;
 
 import '../index.dart';
 
-enum DecorationStyle { highlight, underline }
+enum DecorationStyle { highlight, underline, noteMarker }
 
 DecorationStyle _styleFromString(String styleStr) {
   switch (styleStr) {
     case 'underline':
       return DecorationStyle.underline;
+    case 'noteMarker':
+      return DecorationStyle.noteMarker;
     case 'highlight':
     default:
       return DecorationStyle.highlight;

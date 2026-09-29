@@ -1153,6 +1153,10 @@ object ReadiumReader : TimebasedNavigator.TimebasedListener, EpubNavigator.Visua
         currentReaderWidget?.onExternalLinkActivated(url)
     }
 
+    override fun onDecorationTapped(id: String, locator: Locator) {
+        currentReaderWidget?.onDecorationTapped(id, locator)
+    }
+
     override fun onVisualCurrentLocationChanged(locator: Locator) {
         currentReaderWidget?.onVisualCurrentLocationChanged(locator)
     }
@@ -1168,6 +1172,18 @@ object ReadiumReader : TimebasedNavigator.TimebasedListener, EpubNavigator.Visua
 
     suspend fun getEpubLocatorFragments(locator: Locator): Locator? {
         return epubNavigator?.getLocatorFragments(locator)
+    }
+
+    suspend fun epubGetCurrentSelection(): String? {
+        return epubNavigator?.getCurrentSelection()
+    }
+
+    suspend fun epubSelectLocator(locator: Locator) {
+        epubNavigator?.selectLocator(locator)
+    }
+
+    fun epubClearSelection() {
+        epubNavigator?.clearSelection()
     }
 
     suspend fun epubEvaluateJavascript(script: String): String? {

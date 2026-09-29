@@ -10,17 +10,14 @@ final class EpubEditingActionsTests: XCTestCase {
         )
     }
 
-    func testEpubEditingActionsContainsLookup() {
+    func testEpubEditingActionsContainsHighlightAndNote() {
         XCTAssertTrue(
-            ReadiumReaderView.epubEditingActions.contains(.lookup),
-            "editingActions must retain .lookup (regression)"
+            ReadiumReaderView.epubEditingActions.contains(ReadiumReaderView.highlightEditingAction),
+            "editingActions must include Highlight"
         )
-    }
-
-    func testEpubEditingActionsContainsTranslate() {
         XCTAssertTrue(
-            ReadiumReaderView.epubEditingActions.contains(.translate),
-            "editingActions must retain .translate (regression)"
+            ReadiumReaderView.epubEditingActions.contains(ReadiumReaderView.noteEditingAction),
+            "editingActions must include Add note"
         )
     }
 
@@ -28,7 +25,7 @@ final class EpubEditingActionsTests: XCTestCase {
         XCTAssertEqual(
             ReadiumReaderView.epubEditingActions.count,
             3,
-            "editingActions must have exactly 3 items: copy, lookup, translate"
+            "editingActions must contain Copy, Highlight, and Add note"
         )
     }
 }

@@ -1,6 +1,7 @@
 package dev.mulev.flureadium.fragments
 
 import android.os.Bundle
+import android.graphics.Color
 import android.util.Log
 import android.view.View
 import android.view.ViewGroup
@@ -9,6 +10,7 @@ import androidx.fragment.app.commitNow
 import androidx.lifecycle.lifecycleScope
 import dev.mulev.flureadium.EdgeTapInterceptView
 import dev.mulev.flureadium.FlutterNavigationConfig
+import dev.mulev.flureadium.NoteMarkerDecorationStyle
 import dev.mulev.flureadium.R
 import dev.mulev.flureadium.ReadiumReader
 import dev.mulev.flureadium.models.EpubReaderViewModel
@@ -18,8 +20,11 @@ import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 import org.readium.r2.navigator.Decoration
+import org.readium.r2.navigator.DecorableNavigator
 import org.readium.r2.navigator.epub.EpubNavigatorFragment
 import org.readium.r2.navigator.epub.EpubPreferences
+import org.readium.r2.navigator.html.HtmlDecorationTemplate
+import org.readium.r2.navigator.html.HtmlDecorationTemplates
 import org.readium.r2.shared.ExperimentalReadiumApi
 import org.readium.r2.shared.publication.Locator
 import org.readium.r2.shared.util.AbsoluteUrl
@@ -108,6 +113,18 @@ class EpubReaderFragment : VisualReaderFragment(), EpubNavigatorFragment.Listene
         }
 
         navigator.applyDecorations(decorations, group)
+    }
+
+    fun addDecorationListener(group: String, listener: DecorableNavigator.Listener) {
+        epubNavigator?.addDecorationListener(group, listener)
+    }
+
+    fun removeDecorationListener(listener: DecorableNavigator.Listener) {
+        epubNavigator?.removeDecorationListener(listener)
+    }
+
+    fun clearSelection() {
+        epubNavigator?.clearSelection()
     }
 
     /**
@@ -310,6 +327,21 @@ class EpubReaderFragment : VisualReaderFragment(), EpubNavigatorFragment.Listene
         val fragmentFactory = navigatorFactory.createFragmentFactory(
             configuration = EpubNavigatorFragment.Configuration(
                 shouldApplyInsetsPadding = false,
+                decorationTemplates = HtmlDecorationTemplates.defaultTemplates().apply {
+                    this[NoteMarkerDecorationStyle::class] = HtmlDecorationTemplate(
+                        layout = HtmlDecorationTemplate.Layout.BOUNDS,
+                        width = HtmlDecorationTemplate.Width.PAGE,
+                        element = { decoration ->
+                            val tint = (decoration.style as? NoteMarkerDecorationStyle)?.tint
+                                ?: Color.rgb(112, 65, 145)
+                            val cssTint = String.format("#%06X", 0xFFFFFF and tint)
+                            """<div class="mbo-note-marker-root"><span class="mbo-note-marker" data-activable="1" style="--mbo-note-marker-tint:$cssTint"><i class="mbo-note-glyph" aria-hidden="true"></i></span></div>"""
+                        },
+                        stylesheet = ".mbo-note-marker-root{position:relative;width:100%;height:100%;pointer-events:none;overflow:visible}.mbo-note-marker{position:absolute;top:-7px;right:4px;width:15px;height:15px;box-sizing:border-box;border:1.5px solid var(--mbo-note-marker-tint);border-radius:50%;background:var(--RS__backgroundColor,#fff);color:var(--mbo-note-marker-tint);display:flex;align-items:center;justify-content:center;z-index:99;pointer-events:auto;box-shadow:0 0 0 1px var(--RS__backgroundColor,#fff)}.mbo-note-glyph{position:relative;display:block;width:6px;height:8px;box-sizing:border-box;border:1px solid var(--mbo-note-marker-tint);border-radius:1px}.mbo-note-glyph:after{content:'';position:absolute;left:1px;right:1px;top:2px;height:1px;background:var(--mbo-note-marker-tint);box-shadow:0 2px 0 var(--mbo-note-marker-tint)}"
+                    )
+                },
+                selectionActionModeCallback = ReadiumReader.currentReaderWidget
+                    ?.selectionActionModeCallback,
 
                 // DFG: This will be relative to your app's src/main/assets/ folder.
                 // To reference assets from other flutter packages use 'flutter_assets/packages/<package>/assets/.*'

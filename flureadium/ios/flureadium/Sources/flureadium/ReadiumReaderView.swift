@@ -78,7 +78,15 @@ class ReadiumReaderView: NSObject, FlutterPlatformView, EPUBNavigatorDelegate, V
 
   /// The editing actions shown in the EPUB long-press selection menu.
   /// Keeping this as a static constant makes the native action set testable.
-  static let epubEditingActions: [EditingAction] = [.copy, .lookup, .translate]
+  static let highlightEditingAction =
+    EditingAction(title: "Highlight", action: Selector("onHighlightSelection:"))
+  static let noteEditingAction =
+    EditingAction(title: "Add note", action: Selector("onNoteSelection:"))
+  static let epubEditingActions: [EditingAction] = [
+    .copy,
+    highlightEditingAction,
+    noteEditingAction,
+  ]
 
   func view() -> UIView {
     print(TAG, "::getView")
@@ -142,7 +150,31 @@ class ReadiumReaderView: NSObject, FlutterPlatformView, EPUBNavigatorDelegate, V
     config.preloadPreviousPositionCount = 2
     config.preloadNextPositionCount = 4
     config.debugState = true
-    config.decorationTemplates = HTMLDecorationTemplate.defaultTemplates(alpha: 1.0, experimentalPositioning: true)
+    var decorationTemplates = HTMLDecorationTemplate.defaultTemplates(
+      alpha: 1.0,
+      experimentalPositioning: true
+    )
+    decorationTemplates[.mboNoteMarker] = HTMLDecorationTemplate(
+      layout: .bounds,
+      width: .page,
+      element: { decoration in
+        let tint = (decoration.style.config as? UIColor ?? .systemPurple).cssValue()
+        return """
+          <div class="mbo-note-marker-root">
+            <span class="mbo-note-marker" data-activable="1" style="--mbo-note-marker-tint: \(tint)">
+              <i class="mbo-note-glyph" aria-hidden="true"></i>
+            </span>
+          </div>
+          """
+      },
+      stylesheet: """
+        .mbo-note-marker-root { position: relative; width: 100%; height: 100%; pointer-events: none; overflow: visible; }
+        .mbo-note-marker { position: absolute; top: -7px; right: 4px; width: 15px; height: 15px; box-sizing: border-box; border: 1.5px solid var(--mbo-note-marker-tint); border-radius: 50%; background: var(--RS__backgroundColor, #fff); color: var(--mbo-note-marker-tint); display: flex; align-items: center; justify-content: center; z-index: 99; pointer-events: auto; box-shadow: 0 0 0 1px var(--RS__backgroundColor, #fff); }
+        .mbo-note-glyph { position: relative; display: block; width: 6px; height: 8px; box-sizing: border-box; border: 1px solid var(--mbo-note-marker-tint); border-radius: 1px; }
+        .mbo-note-glyph:after { content: ''; position: absolute; left: 1px; right: 1px; top: 2px; height: 1px; background: var(--mbo-note-marker-tint); box-shadow: 0 2px 0 var(--mbo-note-marker-tint); }
+        """
+    )
+    config.decorationTemplates = decorationTemplates
     config.editingActions = ReadiumReaderView.epubEditingActions
     config.preferences = defaultPreferences
 
@@ -162,6 +194,10 @@ class ReadiumReaderView: NSObject, FlutterPlatformView, EPUBNavigatorDelegate, V
 
     channel.setMethodCallHandler(onMethodCall)
     readiumViewController.delegate = self
+    readiumViewController.observeDecorationInteractions(inGroup: "book-annotations") { [weak self] event in
+      guard let self = self else { return }
+      self.channel.onDecorationTapped(id: event.decoration.id, locator: event.decoration.locator)
+    }
 
     // Set initial scroll mode from preferences and configure edge tap handlers accordingly
     isVerticalScroll = defaultPreferences.scroll ?? false
@@ -209,6 +245,12 @@ class ReadiumReaderView: NSObject, FlutterPlatformView, EPUBNavigatorDelegate, V
       currentReaderView?.readiumViewController.apply(decorations: [Decoration(id: "highlight", locator: selectionLocator, style: .highlight(), userInfo: [:])], in: "user-highlight")
       readiumViewController.clearSelection()
     }
+  }
+
+  @MainActor func performSelectionAction(_ action: String) {
+    guard let locator = readiumViewController.currentSelection?.locator else { return }
+    channel.onSelectionAction(action: action, locator: locator)
+    readiumViewController.clearSelection()
   }
 
   // override EPUBNavigatorDelegate::navigator:setupUserScripts
@@ -305,12 +347,82 @@ class ReadiumReaderView: NSObject, FlutterPlatformView, EPUBNavigatorDelegate, V
     return self.readiumViewController.currentSelection?.locator
   }
 
+  func selectLocator(_ locator: Locator) async {
+    guard !isDisposed else { return }
+    await goToLocator(locator: locator, animated: false)
+    guard !isDisposed, let locatorJSON = locator.jsonString,
+          let encoded = try? JSONEncoder().encode(locatorJSON),
+          let quotedLocator = String(data: encoded, encoding: .utf8) else { return }
+    let script = """
+    (function() {
+      try {
+        const locator = JSON.parse(\(quotedLocator));
+        const locations = locator.locations || {};
+        const domRange = locations.domRange;
+        const boundary = (value) => {
+          if (!value || !value.cssSelector) return null;
+          const element = document.querySelector(value.cssSelector);
+          if (!element) return null;
+          if (value.charOffset !== undefined) {
+            const textNodes = Array.from(element.childNodes)
+              .filter(node => node.nodeType === Node.TEXT_NODE);
+            const node = textNodes[value.textNodeIndex];
+            return node ? { node, offset: value.charOffset } : null;
+          }
+          return { node: element, offset: value.textNodeIndex };
+        };
+        let range = null;
+        if (domRange && domRange.start && domRange.end) {
+          const start = boundary(domRange.start);
+          const end = boundary(domRange.end);
+          if (start && end) {
+            range = document.createRange();
+            range.setStart(start.node, start.offset);
+            range.setEnd(end.node, end.offset);
+          }
+        }
+        if (!range) {
+          const quote = locator.text && locator.text.highlight;
+          if (!quote) return false;
+          const root = locations.cssSelector
+            ? document.querySelector(locations.cssSelector)
+            : document.body;
+          if (!root) return false;
+          const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+          const nodes = [];
+          let text = '';
+          while (walker.nextNode()) {
+            const node = walker.currentNode;
+            nodes.push({ node, start: text.length, end: text.length + node.textContent.length });
+            text += node.textContent;
+          }
+          const startIndex = text.indexOf(quote);
+          if (startIndex < 0) return false;
+          const endIndex = startIndex + quote.length;
+          const startNode = nodes.find(item => item.start <= startIndex && item.end > startIndex);
+          const endNode = nodes.find(item => item.start < endIndex && item.end >= endIndex);
+          if (!startNode || !endNode) return false;
+          range = document.createRange();
+          range.setStart(startNode.node, startIndex - startNode.start);
+          range.setEnd(endNode.node, endIndex - endNode.start);
+        }
+        const selection = window.getSelection();
+        selection.removeAllRanges();
+        selection.addRange(range);
+        return true;
+      } catch (_) { return false; }
+    })()
+    """
+    _ = await evaluateJavascript(script)
+  }
+
   private func evaluateJavascript(_ code: String) async -> Result<Any, Error> {
     return await self.readiumViewController.evaluateJavaScript(code)
   }
 
   private func evaluateJSReturnResult(_ code: String, result: @escaping FlutterResult) {
-    Task.detached(priority: .high) {
+    Task { @MainActor in
+      guard !self.isDisposed else { result(nil); return }
       do {
         let data = try await self.evaluateJavascript(code).get()
         print(TAG, "evaluateJSReturnResult result: \(data)")
@@ -444,7 +556,7 @@ class ReadiumReaderView: NSObject, FlutterPlatformView, EPUBNavigatorDelegate, V
 
     print(TAG, "emitOnPageChanged:locator=\(String(describing: locator))")
 
-    Task.detached(priority: .high) { [isVerticalScroll, weak self] in
+    Task { @MainActor [isVerticalScroll, weak self] in
       guard let self else { return }
       let isDisposed = await MainActor.run { self.isDisposed }
       guard !isDisposed else { return }
@@ -467,7 +579,7 @@ class ReadiumReaderView: NSObject, FlutterPlatformView, EPUBNavigatorDelegate, V
 
   private func emitOnExternalLinkActivated(url: URL) {
     print(TAG, "emitOnExternalLinkActivated: \(url)")
-    Task.detached(priority: .high) {
+    Task { @MainActor in
       await MainActor.run() {
         self.channel.onExternalLinkActivated(url: url)
       }
@@ -548,10 +660,13 @@ class ReadiumReaderView: NSObject, FlutterPlatformView, EPUBNavigatorDelegate, V
   func onMethodCall(call: FlutterMethodCall, result: @escaping FlutterResult) {
     switch call.method {
     case "go":
-      let args = call.arguments as! [Any?]
-      print(TAG, "onMethodCall[go] locator = \(args[0] as! String)")
-      let locator = try! Locator(jsonString: args[0] as! String, warnings: readiumBugLogger)!
-      let animated = args[1] as! Bool
+      guard let args = call.arguments as? [Any], args.count >= 3,
+            let json = args[0] as? String,
+            let locator = try? Locator(jsonString: json, warnings: readiumBugLogger),
+            let animated = args[1] as? Bool else {
+        result(FlutterError(code: "invalid_arguments", message: "Invalid navigation locator", details: nil))
+        return
+      }
       let isAudioBookWithText = args[2] as? Bool ?? false
 
       Task { @MainActor in
@@ -561,7 +676,10 @@ class ReadiumReaderView: NSObject, FlutterPlatformView, EPUBNavigatorDelegate, V
       }
       break
     case "goLeft":
-      let animated = call.arguments as! Bool
+      guard let animated = call.arguments as? Bool else {
+        result(FlutterError(code: "invalid_arguments", message: "Expected animation flag", details: nil))
+        return
+      }
       let readiumViewController = self.readiumViewController
 
       Task { @MainActor in
@@ -570,7 +688,10 @@ class ReadiumReaderView: NSObject, FlutterPlatformView, EPUBNavigatorDelegate, V
       }
       break
     case "goRight":
-      let animated = call.arguments as! Bool
+      guard let animated = call.arguments as? Bool else {
+        result(FlutterError(code: "invalid_arguments", message: "Expected animation flag", details: nil))
+        return
+      }
       let readiumViewController = self.readiumViewController
 
       Task { @MainActor in
@@ -579,11 +700,14 @@ class ReadiumReaderView: NSObject, FlutterPlatformView, EPUBNavigatorDelegate, V
       }
       break
     case "setLocation":
-      let args = call.arguments as! [Any]
-      print(TAG, "onMethodCall[setLocation] locator = \(args[0] as! String)")
-      let locator = try! Locator(jsonString: args[0] as! String, warnings: readiumBugLogger)!
+      guard let args = call.arguments as? [Any], args.count >= 2,
+            let json = args[0] as? String,
+            let locator = try? Locator(jsonString: json, warnings: readiumBugLogger) else {
+        result(FlutterError(code: "invalid_arguments", message: "Invalid location", details: nil))
+        return
+      }
       let isAudioBookWithText = args[1] as? Bool ?? false
-      Task.detached(priority: .high) {
+      Task { @MainActor in
         let _ = await self.setLocation(locator: locator, isAudioBookWithText: isAudioBookWithText)
         return await MainActor.run() {
           result(true)
@@ -592,7 +716,7 @@ class ReadiumReaderView: NSObject, FlutterPlatformView, EPUBNavigatorDelegate, V
       break
     case "getLocatorFragments":
       let args = call.arguments as? String ?? "null"
-      Task.detached(priority: .high) {
+      Task { @MainActor in
         do {
           let data = try await self.evaluateJavascript("window.epubPage.getLocatorFragments(\(args), true);").get()
           await MainActor.run() {
@@ -609,7 +733,7 @@ class ReadiumReaderView: NSObject, FlutterPlatformView, EPUBNavigatorDelegate, V
     case "getCurrentLocator":
       let args = call.arguments as? String ?? "null"
       print(TAG, "onMethodCall[currentLocator] args = \(args)")
-      Task.detached(priority: .high) { [isVerticalScroll] in
+      Task { @MainActor [isVerticalScroll] in
         guard let json = await self.readiumViewController.currentLocation?.jsonString else {
           await MainActor.run { result(nil) }
           return
@@ -620,10 +744,30 @@ class ReadiumReaderView: NSObject, FlutterPlatformView, EPUBNavigatorDelegate, V
         }
       }
       break
+    case "getCurrentSelection":
+      result(self.readiumViewController.currentSelection?.locator.jsonString)
+      break
+    case "selectLocator":
+      guard let locatorJSON = call.arguments as? String,
+            let locator = try? Locator(jsonString: locatorJSON, warnings: readiumBugLogger) else {
+        result(FlutterError(code: "select_locator_failed", message: "Invalid locator", details: nil))
+        return
+      }
+      Task { @MainActor in
+        await self.selectLocator(locator)
+        result(nil)
+      }
+      break
+    case "clearSelection":
+      self.readiumViewController.clearSelection()
+      result(nil)
+      break
     case "isLocatorVisible":
-      let args = call.arguments as! String
-      print(TAG, "onMethodCall[isLocatorVisible] locator = \(args)")
-      let locator = try! Locator(jsonString: args, warnings: readiumBugLogger)!
+      guard let args = call.arguments as? String,
+            let locator = try? Locator(jsonString: args, warnings: readiumBugLogger) else {
+        result(false)
+        return
+      }
       if locator.href != self.readiumViewController.currentLocation?.href {
         result(false)
         return
@@ -642,13 +786,20 @@ class ReadiumReaderView: NSObject, FlutterPlatformView, EPUBNavigatorDelegate, V
             """, result: result)
       break
     case "setPreferences":
-      let args = call.arguments as! [String: String]
+      guard let args = call.arguments as? [String: String] else {
+        result(FlutterError(code: "invalid_arguments", message: "Invalid preferences", details: nil))
+        return
+      }
       print(TAG, "onMethodCall[setPreferences] args = \(args)")
       let preferences = EPUBPreferences.init(fromMap: args)
       setUserPreferences(preferences: preferences)
+      result(nil)
       break
     case "setNavigationConfig":
-      let args = call.arguments as! [String: Any]
+      guard let args = call.arguments as? [String: Any] else {
+        result(FlutterError(code: "invalid_arguments", message: "Invalid navigation configuration", details: nil))
+        return
+      }
       print(TAG, "onMethodCall[setNavigationConfig] args = \(args)")
       let navConfig = FlutterNavigationConfig(fromMap: args)
       if let v = navConfig.enableEdgeTapNavigation { enableEdgeTapNavigation = v }
@@ -660,9 +811,47 @@ class ReadiumReaderView: NSObject, FlutterPlatformView, EPUBNavigatorDelegate, V
       result(nil)
       break
     case "applyDecorations":
-      let args = call.arguments as! [Any?]
-      let identifier = args[0] as! String
-      let decorationsStr = args[1] as! [String]
+      guard let args = call.arguments as? [Any], args.count == 2,
+            let identifier = args[0] as? String,
+            let decorationsPayload = args[1] as? [Any] else {
+        return result(FlutterError.init(
+          code: "JSON mapping error",
+          message: "Could not map decorations: expected a list",
+          details: nil))
+      }
+
+      // ReaderDecoration.toJson() sends nested maps. Keep accepting the
+      // legacy JSON-string form while flattening the current Dart payload to
+      // the string map consumed by Decoration(fromJson:).
+      let decorationsStr: [String] = decorationsPayload.compactMap { value in
+        if let jsonString = value as? String { return jsonString }
+        guard let decoration = value as? [String: Any],
+              let id = decoration["id"] as? String,
+              let locator = decoration["locator"],
+              let style = decoration["style"] as? [String: Any],
+              let styleName = style["style"] as? String,
+              let tint = style["tint"] as? String else {
+          return nil
+        }
+        guard let locatorData = try? JSONSerialization.data(
+          withJSONObject: locator, options: [.fragmentsAllowed, .sortedKeys]),
+              let locatorString = String(data: locatorData, encoding: .utf8) else {
+          return nil
+        }
+        let flattened = ["id": id, "locator": locatorString, "style": styleName, "tint": tint]
+        guard let data = try? JSONSerialization.data(withJSONObject: flattened, options: [.sortedKeys]),
+              let jsonString = String(data: data, encoding: .utf8) else {
+          return nil
+        }
+        return jsonString
+      }
+
+      guard decorationsStr.count == decorationsPayload.count else {
+        return result(FlutterError.init(
+          code: "JSON mapping error",
+          message: "Could not map one or more decorations",
+          details: nil))
+      }
 
       guard let decorations = try? decorationsStr.map({ try Decoration(fromJson: $0) }) else {
         return result(FlutterError.init(
@@ -673,6 +862,7 @@ class ReadiumReaderView: NSObject, FlutterPlatformView, EPUBNavigatorDelegate, V
 
       print(TAG, "onMethodCall[setPreferences] args = \(args)")
       applyDecorations(decorations, forGroup: identifier)
+      result(nil)
       break
     case "dispose":
       print(TAG, "Disposing readiumViewController")
